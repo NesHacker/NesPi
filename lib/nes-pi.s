@@ -23,18 +23,41 @@
 ten32Bit: .byte 10, 0, 0, 0
 
 .proc piSpigot
-  N = 12
+  N = 60
   LEN = 10 * N / 3
   LEN_BYTES = 2 * LEN
 
-  ARRAY     = $6000
-  ARRAY_PTR = $E0
-  nines     = $80
-  predigit  = $81
-  q         = $82
-  j         = $90
-  i         = $92
-  z         = $94
+  ARRAY       = $6000
+  digits      = $300
+
+  nines       = $80 ; 8-bit
+  predigit    = $81 ; 8-bit
+  q           = $82 ; 8-bit
+
+  ARRAY_PTR   = $90 ; 16-bit
+  j           = $92 ; 16-bit
+  i           = $94 ; 16-bit
+  digitPtr    = $B0 ; 16-bit
+
+  z           = $A0 ; 32-bit
+
+  lda #.LOBYTE(digits)
+  sta digitPtr
+  lda #.HIBYTE(digits)
+  sta digitPtr + 1
+
+  .macro WriteDigit addr
+    lda addr
+    ldy #0
+    sta (digitPtr), y
+    lda digitPtr
+    clc
+    adc #1
+    sta digitPtr
+    lda digitPtr + 1
+    adc #0
+    sta digitPtr + 1
+  .endmacro
 
   ; for (let x = len; x > 0; x--) {
   .scope
@@ -49,10 +72,12 @@ ten32Bit: .byte 10, 0, 0, 0
     ldy #0
   loop:
     ; A[i] = 2
+    ldy #0
     lda #2
     sta (ARRAY_PTR), y
     lda #0
-    sta (ARRAY_PTR + 1), y
+    iny
+    sta (ARRAY_PTR), y
     ; x--
     lda $20
     sec
@@ -126,7 +151,8 @@ ten32Bit: .byte 10, 0, 0, 0
       ldy #0
       lda (ARRAY_PTR), y
       sta $02
-      lda (ARRAY_PTR + 1), y
+      iny
+      lda (ARRAY_PTR), y
       sta $03
       jsr mul16
       ldx #3
@@ -197,9 +223,10 @@ ten32Bit: .byte 10, 0, 0, 0
 
       ; A[i] = z % (2*i - 1)
       ldy #0
-      lda $0C + 1
-      sta (ARRAY_PTR + 1), y
       lda $0C
+      sta (ARRAY_PTR), y
+      iny
+      lda $0C + 1
       sta (ARRAY_PTR), y
 
       ; q = (z / (2*i - 1)) | 0
@@ -269,17 +296,22 @@ ten32Bit: .byte 10, 0, 0, 0
 
         ;  digits.push(predigit + 1)
         inc predigit
-        lda predigit
-        clc
-        adc #$10
-        sta PPU_DATA
+        WriteDigit predigit
 
         ;  for (let k = 1; k <= nines; k++) digits.push(0)
         ldx nines
-        lda #$10
-      : sta PPU_DATA
+        beq skipZerosLoop
+      zerosLoop:
+        WriteDigit #0
         dex
-        bpl :-
+        bne zerosLoop
+      skipZerosLoop:
+
+      ;   ldx nines
+      ; ninesLoop:
+      ;   WriteDigit #0
+      ;   dex
+      ;   bne ninesLoop
 
         ;  predigit = nines = 0
         lda #0
@@ -294,10 +326,7 @@ ten32Bit: .byte 10, 0, 0, 0
       ; else {
       .scope
         ; digits.push(predigit)
-        lda predigit
-        clc
-        adc #$10
-        sta PPU_DATA
+        WriteDigit predigit
 
         ; predigit = q
         lda q
@@ -309,11 +338,11 @@ ten32Bit: .byte 10, 0, 0, 0
           beq skip
 
           ; for (let k = 1; k <= nines; k++) digits.push(9)
-          lda #$19
           ldx nines
-        : sta PPU_DATA
+        ninesLoop:
+          WriteDigit #9
           dex
-          bne :-
+          bne ninesLoop
 
           ; nines = 0
           lda #0
@@ -350,8 +379,8 @@ ten32Bit: .byte 10, 0, 0, 0
 
 .proc main
   NesReset
+  VramReset
 
-  VramColRow 0, 1, NAMETABLE_A
   jsr piSpigot
 
   jsr printNesHackerLogo
