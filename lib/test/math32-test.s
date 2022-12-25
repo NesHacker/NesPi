@@ -122,6 +122,8 @@
   jsr testDiv32
   jsr testMod32
 
+  jsr printNesHackerLogo
+
   rts
 @title:
   .byte "### MATH32 LIBRARY TESTS ###", 0
