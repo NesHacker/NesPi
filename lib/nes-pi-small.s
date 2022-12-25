@@ -23,20 +23,18 @@
 ten32Bit: .byte 10, 0, 0, 0
 
 .proc piSpigot
-  N = 21
+  N = 12
   LEN = 10 * N / 3
   LEN_BYTES = 2 * LEN
-  ARRAY = $0400
 
+  ARRAY     = $300
   ARRAY_PTR = $E0
-
-  nines     = $0200
-  predigit  = $0204
-  j         = $0208
-  i         = $020C
-  k         = $0210
-  q         = $0214
-  z         = $0218
+  nines     = $80
+  predigit  = $81
+  q         = $82
+  j         = $90
+  i         = $92
+  z         = $94
 
   ; for (let x = len; x > 0; x--) {
   .scope
@@ -209,10 +207,14 @@ ten32Bit: .byte 10, 0, 0, 0
       sta q
 
       ; if (--i == 0) break
-      dec i
-      bpl :+
-      dec i + 1
-    : lda i
+      lda i
+      sec
+      sbc #1
+      sta i
+      lda i + 1
+      sbc #0
+      sta i + 1
+      lda i
       bne :+
       lda i + 1
       bne :+
@@ -324,10 +326,15 @@ ten32Bit: .byte 10, 0, 0, 0
     next:
     .endscope
 
-    dec j
-    bpl :+
-    dec j+1
-  : lda j
+    lda j
+    sec
+    sbc #1
+    sta j
+    lda j + 1
+    sbc #0
+    sta j + 1
+
+    lda j
     bne nextIteration
     lda j+1
     bne nextIteration
@@ -358,4 +365,3 @@ ten32Bit: .byte 10, 0, 0, 0
   VramReset
   rti
 .endproc
-
