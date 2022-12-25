@@ -98,7 +98,7 @@
   LoadData @data, $00, 8
   LoadData @expected, $20, 4
   jsr div32
-  PrintTest @label, $12, $20
+  PrintTest @label, $0C, $20
   rts
 @label:
   .byte "MOD32: ", 0
@@ -109,11 +109,8 @@
   .byte $AD, $D3, $46, $00
 .endproc
 
-
-
 .proc test
   PrintTitle @title
-
   jsr testInc32
   jsr testDec32
   jsr testAdd32
@@ -121,9 +118,6 @@
   jsr testMul32
   jsr testDiv32
   jsr testMod32
-
-  jsr printNesHackerLogo
-
   rts
 @title:
   .byte "### MATH32 LIBRARY TESTS ###", 0

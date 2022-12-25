@@ -137,12 +137,16 @@
 .endproc
 
 
-
+; Divides two 32-bit integers producing a result and a remainder.
+; @param [$00-$03] The dividend (numerator) for the division.
+; @param [$04-$07] The divisor (denominator) for the division.
+; @return [$00-$03] Result of the division.
+; @return [$0C-$0F] Remainder after division.
 .proc div32
   DIVIDEND = $00  ; The 4-byte Dividend for the division (numerator)
   DIVISOR = $04   ; The 4-byte Divisor for the division (denominator)
   SUB = $08       ; 4-bytes to store the result of the test subtraction.
-  REM = $12       ; 4-bytes to store the running remainder.
+  REM = $0C       ; 4-bytes to store the running remainder.
 
   ; Push the current values of A and X to the stack
   pha

@@ -140,24 +140,3 @@ arrowLabel: .byte "  ", $0C, "  ", 0
   jsr nextPrintLine
   pla
 .endmacro
-
-.proc printNesHackerLogo
-  VramColRow 15, 26, NAMETABLE_A
-  ldx #$60
-: stx PPU_DATA
-  inx
-  cpx #$70
-  bne :-
-  VramColRow 15, 27, NAMETABLE_A
-: stx PPU_DATA
-  inx
-  cpx #$80
-  bne :-
-  Vram $23F0
-  lda #%01010101
-  ldx #16
-: sta PPU_DATA
-  dex
-  bne :-
-  rts
-.endproc
