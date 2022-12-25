@@ -76,6 +76,41 @@
   .byte $86, $BA, $A8, $5E
 .endproc
 
+.proc testDiv32
+  ; 0xFC96EB85 / 0x001A42DF = 0x0000099E
+  LoadData @data, $00, 8
+  LoadData @expected, $20, 4
+  jsr div32
+  PrintTest @label, $0000, $0020
+  rts
+@label:
+  .byte "DIV32: ", 0
+@data:
+  .byte $85, $EB, $96, $FC
+  .byte $DF, $42, $1A, $00
+@expected:
+  .byte $9E, $09, $00, $00
+.endproc
+
+.proc testMod32
+  ; 0xDEADBEEF % 0xC0FFEE = 0x0046D3AD
+  ; 3735928559 % 12648430 =    4641709
+  LoadData @data, $00, 8
+  LoadData @expected, $20, 4
+  jsr div32
+  PrintTest @label, $12, $20
+  rts
+@label:
+  .byte "MOD32: ", 0
+@data:
+  .byte $EF, $BE, $AD, $DE
+  .byte $EE, $FF, $C0, $00
+@expected:
+  .byte $AD, $D3, $46, $00
+.endproc
+
+
+
 .proc test
   PrintTitle @title
 
@@ -84,6 +119,8 @@
   jsr testAdd32
   jsr testSub32
   jsr testMul32
+  jsr testDiv32
+  jsr testMod32
 
   rts
 @title:
