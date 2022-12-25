@@ -83,6 +83,44 @@
   rts
 .endproc
 
+;
+; Multiplies two 16 bit numbers and returns a 32-bit result.
+; @param [$00-$01] First 16-bit operand.
+; @param [$02-$03] Second 16-bit operand.
+; @return [$10-$13] 32-bit result.
+;
+.proc mul16
+  NUM1 = $00
+  NUM2 = $02
+  RESULT = $10
+  txa
+  pha
+  lda #0
+  sta RESULT+2
+  ldx #16
+@loop:
+  lsr NUM2+1      ; Shift a bit
+  ror NUM2
+  bcc :+          ; 0 or 1 ?
+  tay
+  clc
+  lda NUM1
+  adc RESULT+2
+  sta RESULT+2
+  tya
+  adc NUM1+1
+: ror A
+  ror RESULT+2
+  ror RESULT+1
+  ror RESULT
+  dex
+  bne @loop
+  sta RESULT+3
+  pla
+  tax
+  rts
+.endproc
+
 ; Multiplies two 32-bit numbers and returns a 64-bit result.
 ; @param [$00-$03] The first 32-bit number.
 ; @param [$04-$07] The second 32-bit number.
@@ -208,5 +246,41 @@
   tax
   pla
 
+  rts
+.endproc
+
+
+.proc div8
+  DIVIDEND  = $00
+  DIVISOR   = $01
+  SUB       = $02
+  REM       = $03
+
+  ; Zero-out the Remainder memory
+  lda #0
+  sta REM
+
+  ; for (int x = 8; x > 0; x--)
+  ldx #8
+@loop:
+  ; Shift the next bit off the front of the dividend
+  asl DIVIDEND
+  rol REM
+
+  ; Perform the test subtraction
+  lda REM
+  sec
+  sbc DIVISOR
+  sta SUB
+  bcc @skip_increment
+
+  ; Record a "1" and store the resulting remainder
+  lda SUB
+  sta REM
+  inc DIVIDEND
+
+@skip_increment:
+  dex
+  bne @loop
   rts
 .endproc

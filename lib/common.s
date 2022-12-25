@@ -1,5 +1,3 @@
-; Common NES Programming Routines
-
 .macro VblankWait
 : bit $2002
   bpl :-
@@ -44,3 +42,69 @@
   dex
   bne @paletteLoadLoop
 .endmacro
+
+.segment "CODE"
+
+.proc loadPalettes
+  lda #$3f
+  sta $2006
+  lda #$00
+  sta $2006
+  ldx #0
+: lda @palettes, x
+  sta $2007
+  inx
+  cpx #$20
+  bne :-
+  rts
+@palettes:
+  .byte $0F, $0F, $03, $32
+  .byte $0F, $2D, $16, $0F
+  .byte $0F, $03, $15, $32
+  .byte $0F, $03, $15, $32
+  .byte $0F, $03, $15, $32
+  .byte $0F, $03, $15, $32
+  .byte $0F, $03, $15, $32
+  .byte $0F, $03, $15, $32
+.endproc
+
+.proc printNesHackerLogo
+
+  lineOneStart = ($2000 + 26*$20 + 15)
+  bit $2002
+  lda #.HIBYTE(lineOneStart)
+  sta $2006
+  lda #.LOBYTE(lineOneStart)
+  sta $2006
+
+  ldx #$60
+: stx PPU_DATA
+  inx
+  cpx #$70
+  bne :-
+
+  lineTwoStart = ($2000 + 27*$20 + 15)
+  bit $2002
+  lda #.HIBYTE(lineTwoStart)
+  sta $2006
+  lda #.LOBYTE(lineTwoStart)
+  sta $2006
+
+: stx PPU_DATA
+  inx
+  cpx #$80
+  bne :-
+
+  bit $2002
+  lda #$23
+  sta $2006
+  lda #$F0
+  sta $2006
+
+  lda #%01010101
+  ldx #16
+: sta PPU_DATA
+  dex
+  bne :-
+  rts
+.endproc
