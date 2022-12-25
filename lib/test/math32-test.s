@@ -62,6 +62,19 @@
   .byte $D2, $33, $B9, $87
 .endproc
 
+.proc testMul32
+  ; 0x189B67A3 * 0x7E921BC2 = 0x(C2A884E)5EA8BA86
+  LoadData @data, $00, 12
+  jsr mul32
+  PrintTest @label, $0010, $0008
+  rts
+@label:
+  .byte "MUL32: ", 0
+@data:
+  .byte $A3, $67, $9B, $18
+  .byte $C2, $1B, $92, $7E
+  .byte $86, $BA, $A8, $5E
+.endproc
 
 .proc test
   PrintTitle @title
@@ -70,6 +83,7 @@
   jsr testDec32
   jsr testAdd32
   jsr testSub32
+  jsr testMul32
 
   rts
 @title:
