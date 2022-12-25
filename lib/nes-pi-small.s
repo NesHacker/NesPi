@@ -23,9 +23,9 @@
 ten32Bit: .byte 10, 0, 0, 0
 
 .proc piSpigot
-  N = 33
+  N = 21
   LEN = 10 * N / 3
-  LEN_BYTES = 4 * LEN
+  LEN_BYTES = 2 * LEN
   ARRAY = $0400
 
   ARRAY_PTR = $E0
@@ -38,25 +38,48 @@ ten32Bit: .byte 10, 0, 0, 0
   q         = $0214
   z         = $0218
 
-  ; for (let x = 0; x < len; x++) A[x] = 2;
-  lda #.LOBYTE(ARRAY)
-  sta $FE
-  lda #.HIBYTE(ARRAY)
-  sta $FF
-  ldx #0
-  ldy #0
-: lda #2
-  sta ($FE), y
-  lda #4
-  clc
-  adc $FE
-  sta $FE
-  lda #0
-  adc $FF
-  sta $FF
-  inx
-  cpx #LEN
-  bne :-
+  ; for (let x = len; x > 0; x--) {
+  .scope
+    lda #.LOBYTE(ARRAY)
+    sta ARRAY_PTR
+    lda #.HIBYTE(ARRAY)
+    sta ARRAY_PTR + 1
+    lda #.LOBYTE(LEN)
+    sta $20
+    lda #.HIBYTE(LEN)
+    sta $21
+    ldy #0
+  loop:
+    ; A[i] = 2
+    lda #2
+    sta (ARRAY_PTR), y
+    lda #0
+    sta (ARRAY_PTR + 1), y
+    ; x--
+    lda $20
+    sec
+    sbc #1
+    sta $20
+    lda $21
+    sbc #0
+    sta $21
+    ; x > 0
+    lda $20
+    bne next
+    lda $21
+    beq break
+  next:
+    lda ARRAY_PTR
+    clc
+    adc #2
+    sta ARRAY_PTR
+    lda ARRAY_PTR + 1
+    adc #0
+    sta ARRAY_PTR + 1
+    jmp loop
+  break:
+  ; }
+  .endscope
 
   ; let nines = 0, predigit = 0, i = j = k = 0;
   ; This is redundant since memory was zeroed out during reset
@@ -82,10 +105,10 @@ ten32Bit: .byte 10, 0, 0, 0
       ; Save a pointer to the current array position
       lda #.LOBYTE(ARRAY)
       clc
-      adc #.LOBYTE(LEN_BYTES - 4)
+      adc #.LOBYTE(LEN_BYTES - 2)
       sta ARRAY_PTR
       lda #.HIBYTE(ARRAY)
-      adc #.HIBYTE(LEN_BYTES - 4)
+      adc #.HIBYTE(LEN_BYTES - 2)
       sta ARRAY_PTR + 1
 
       ; i = len
@@ -96,24 +119,25 @@ ten32Bit: .byte 10, 0, 0, 0
 
     loop:
       ; z = 10 * A[i] + q * i
-      lda #0
-      sta $03
-      sta $02
-      sta $01
+
+      ; 10 * A[i] -> $20
       lda #10
       sta $00
-      ldy #3
-    : lda (ARRAY_PTR), y
-      sta $04, y
-      dey
-      bpl :-
-      jsr mul32
+      lda #0
+      sta $01
+      ldy #0
+      lda (ARRAY_PTR), y
+      sta $02
+      lda (ARRAY_PTR + 1), y
+      sta $03
+      jsr mul16
       ldx #3
     : lda $10, x
       sta $20, x
       dex
       bpl :-
 
+      ; q * i -> $10
       lda q
       sta $00
       lda #0
@@ -124,6 +148,7 @@ ten32Bit: .byte 10, 0, 0, 0
       sta $03
       jsr mul16
 
+      ; z = $20 + $10 = 10*A[i] + q*i
       lda $10
       clc
       adc $20
@@ -138,10 +163,10 @@ ten32Bit: .byte 10, 0, 0, 0
       adc $23
       sta z + 3
 
-
-
       ; A[i] = z % (2*i - 1)
       ; q = (z / (2*i - 1)) | 0
+
+      ; (2*i - 1) = ((i << 1) - 1) -> $04
       lda i
       sta $04
       lda i+1
@@ -151,24 +176,37 @@ ten32Bit: .byte 10, 0, 0, 0
       sta $07
       asl $04
       rol $05
-      dec $04
-      lda #$FF
-      cmp $04
-      bne :+
-      dec $05
-    : ldx #3
-    : lda z, x
-      sta $00, X
-      dex
-      bpl :-
-      jsr div32
-      ldy #3
-    : lda $0C, y
+      lda $04
+      sec
+      sbc #1
+      sta $04
+      lda $05
+      sbc #0
+      sta $06
+
+      ; z -> $00
+      lda z
+      sta $00
+      lda z + 1
+      sta $01
+      lda z + 2
+      sta $02
+      lda #0
+      sta $03
+
+      ; z / (2*i - 1)
+      jsr div32     ; z will never exceed 3 bytes, div24 is faster
+
+      ; A[i] = z % (2*i - 1)
+      ldy #0
+      lda $0C + 1
+      sta (ARRAY_PTR + 1), y
+      lda $0C
       sta (ARRAY_PTR), y
-      lda $00, y
-      sta q, y
-      dey
-      bpl :-
+
+      ; q = (z / (2*i - 1)) | 0
+      lda $00
+      sta q
 
       ; if (--i == 0) break
       dec i
@@ -180,10 +218,10 @@ ten32Bit: .byte 10, 0, 0, 0
       bne :+
       jmp break
 
-      ; ARRAY_PTR -= 4
+      ; ARRAY_PTR -= 2
     : lda ARRAY_PTR
       sec
-      sbc #4
+      sbc #2
       sta ARRAY_PTR
       lda ARRAY_PTR + 1
       sbc #0
@@ -206,8 +244,6 @@ ten32Bit: .byte 10, 0, 0, 0
     sta ARRAY
     lda #0
     sta ARRAY+1
-    sta ARRAY+2
-    sta ARRAY+3
 
     .scope
     isQNine:
