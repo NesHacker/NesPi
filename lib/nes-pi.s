@@ -20,28 +20,32 @@
 
 .segment "CODE"
 
-
-N = 102
+; Constants
+N = 405
 LEN = 10 * N / 3
 LEN_BYTES = 2 * LEN
 
-ARRAY       = $6000
-digits      = $300
-
+; PPU Variables
 vramAddr    = $60 ; 16-bit
 hasRendered = $62 ; 8-bit
 
-nines       = $80 ; 8-bit
-predigit    = $81 ; 8-bit
-q           = $82 ; 8-bit
+; CPU Variables
+ARRAY       = $6000 ; Array[16-bit]
+digits      = $300  ; Array[8-bit]
 
-i           = $90 ; 16-bit
-j           = $92 ; 16-bit
-z           = $94 ; 32-bit
+nines       = $80   ; 8-bit
+predigit    = $81   ; 8-bit
+q           = $82   ; 8-bit
 
-arrayPtr    = $A0 ; 16-bit
-digitPtr    = $A2 ; 16-bit
-renderPtr   = $A4 ; 16-bit
+i           = $90   ; 16-bit
+j           = $92   ; 16-bit
+
+z           = $A0   ; 32-bit
+
+; Pointers
+arrayPtr    = $B0   ; 16-bit
+digitPtr    = $B2   ; 16-bit
+renderPtr   = $B4   ; 16-bit
 
 .proc piSpigot
   lda #.LOBYTE(digits)
@@ -88,6 +92,7 @@ renderPtr   = $A4 ; 16-bit
     sta ARRAY + $1700, x
     sta ARRAY + $1800, x
     sta ARRAY + $1900, x
+    sta ARRAY + $2000, x
     inx
     inx
     bne arrayInitLoop
@@ -144,6 +149,7 @@ renderPtr   = $A4 ; 16-bit
       lda (arrayPtr), y
       sta $03
       jsr mul16
+
       lda $10
       sta $20
       lda $11
@@ -192,12 +198,16 @@ renderPtr   = $A4 ; 16-bit
       asl $03
       rol $04
       rol $05
-      dec $03
-      lda #$FF
-      cmp $03
-      bne @skipDec
-      dec $04
-    @skipDec:
+      lda $03
+      sec
+      sbc #1
+      sta $03
+      lda $04
+      sbc #0
+      sta $04
+      lda $05
+      sbc #0
+      sta $05
 
       ; z -> $00
       lda z
@@ -218,7 +228,7 @@ renderPtr   = $A4 ; 16-bit
       lda $09 + 1
       sta (arrayPtr), y
 
-      ; q = (z / (2*i - 1)) | 0
+      ; q = z / (2*i - 1)
       lda $00
       sta q
 
@@ -231,13 +241,14 @@ renderPtr   = $A4 ; 16-bit
       sbc #0
       sta i + 1
       lda i
-      bne :+
+      bne next
       lda i + 1
-      bne :+
+      bne next
       jmp break
 
       ; arrayPtr -= 2
-    : lda arrayPtr
+    next:
+      lda arrayPtr
       sec
       sbc #2
       sta arrayPtr
@@ -354,12 +365,14 @@ renderPtr   = $A4 ; 16-bit
 .proc main
   NesReset
   VramReset
-  jsr printNesHackerLogo
+
+  jsr piSpigot
+
   jsr loadPalettes
   VramReset
   EnableRendering
-  EnableNMI
-  jsr piSpigot
+  ; EnableNMI
+
 : jmp :-
 .endproc
 
