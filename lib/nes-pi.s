@@ -21,6 +21,10 @@
 .segment "CODE"
 
 
+N = 102
+LEN = 10 * N / 3
+LEN_BYTES = 2 * LEN
+
 ARRAY       = $6000
 digits      = $300
 
@@ -37,10 +41,6 @@ digitPtr    = $A2 ; 16-bit
 renderPtr   = $A4 ; 16-bit
 
 .proc piSpigot
-  N = 120
-  LEN = 10 * N / 3
-  LEN_BYTES = 2 * LEN
-
   lda #.LOBYTE(digits)
   sta digitPtr
   sta renderPtr
@@ -181,29 +181,20 @@ renderPtr   = $A4 ; 16-bit
 
       ; (2*i - 1) = ((i << 1) - 1) -> $04
       lda i
-      sta $04
+      sta $03
       lda i+1
-      sta $05
-      lda #0
-      sta $06
-      sta $07
-      asl $04
-      rol $05
-      rol $06
-      rol $07
-      lda $04
-      sec
-      sbc #1
       sta $04
-      lda $05
-      sbc #0
+      lda #0
       sta $05
-      lda $06
-      sbc #0
-      sta $06
-      lda $07
-      sbc #0
-      sta $07
+      asl $03
+      rol $04
+      rol $05
+      dec $03
+      lda #$FF
+      cmp $03
+      bne @skipDec
+      dec $04
+    @skipDec:
 
       ; z -> $00
       lda z
@@ -212,18 +203,16 @@ renderPtr   = $A4 ; 16-bit
       sta $01
       lda z + 2
       sta $02
-      lda #0
-      sta $03
 
       ; z / (2*i - 1)
-      jsr div32     ; note: z will never exceed 3 bytes, div24 is faster
+      jsr div24
 
       ; A[i] = z % (2*i - 1)
       ldy #0
-      lda $0C
+      lda $09
       sta (arrayPtr), y
       iny
-      lda $0C + 1
+      lda $09 + 1
       sta (arrayPtr), y
 
       ; q = (z / (2*i - 1)) | 0

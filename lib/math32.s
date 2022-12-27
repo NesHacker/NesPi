@@ -93,8 +93,6 @@
   NUM1 = $00
   NUM2 = $02
   RESULT = $10
-  txa
-  pha
   lda #0
   sta RESULT+2
   ldx #16
@@ -116,8 +114,6 @@
   dex
   bne @loop
   sta RESULT+3
-  pla
-  tax
   rts
 .endproc
 
@@ -174,6 +170,80 @@
   rts
 .endproc
 
+.proc div8
+  DIVIDEND  = $00
+  DIVISOR   = $01
+  SUB       = $02
+  REM       = $03
+  ; Zero-out the Remainder memory
+  lda #0
+  sta REM
+  ; for (int x = 8; x > 0; x--)
+  ldx #8
+@loop:
+  ; Shift the next bit off the front of the dividend
+  asl DIVIDEND
+  rol REM
+  ; Perform the test subtraction
+  lda REM
+  sec
+  sbc DIVISOR
+  sta SUB
+  bcc @skip_increment
+  ; Record a "1" and store the resulting remainder
+  lda SUB
+  sta REM
+  inc DIVIDEND
+@skip_increment:
+  dex
+  bne @loop
+  rts
+.endproc
+
+.proc div24
+  DIVIDEND = $00
+  DIVISOR  = $03
+  SUB      = $06
+  REM      = $09
+  ; Zero-out the Remainder memory
+  lda #0
+  sta REM
+  sta REM+1
+  sta REM+2
+  ; for (int x = 24; x > 0; x--)
+  ldx #24
+@loop:
+  ; Shift the next bit off the front of the dividend
+  asl DIVIDEND
+  rol DIVIDEND+1
+  rol DIVIDEND+2
+  rol REM
+  rol REM+1
+  rol REM+2
+  ; Perform the test subtraction
+  lda REM
+  sec
+  sbc DIVISOR
+  sta SUB
+  lda REM+1
+  sbc DIVISOR+1
+  sta SUB+1
+  lda REM+2
+  sbc DIVISOR+2
+  sta SUB+2
+  bcc @skip_increment
+  ; Record a "1" and store the resulting remainder
+  sta REM+2
+  lda SUB+1
+  sta REM+1
+  lda SUB
+  sta REM
+  inc DIVIDEND
+@skip_increment:
+  dex
+  bne @loop
+  rts
+.endproc
 
 ; Divides two 32-bit integers producing a result and a remainder.
 ; @param [$00-$03] The dividend (numerator) for the division.
@@ -246,41 +316,5 @@
   tax
   pla
 
-  rts
-.endproc
-
-
-.proc div8
-  DIVIDEND  = $00
-  DIVISOR   = $01
-  SUB       = $02
-  REM       = $03
-
-  ; Zero-out the Remainder memory
-  lda #0
-  sta REM
-
-  ; for (int x = 8; x > 0; x--)
-  ldx #8
-@loop:
-  ; Shift the next bit off the front of the dividend
-  asl DIVIDEND
-  rol REM
-
-  ; Perform the test subtraction
-  lda REM
-  sec
-  sbc DIVISOR
-  sta SUB
-  bcc @skip_increment
-
-  ; Record a "1" and store the resulting remainder
-  lda SUB
-  sta REM
-  inc DIVIDEND
-
-@skip_increment:
-  dex
-  bne @loop
   rts
 .endproc
