@@ -20,88 +20,74 @@
 
 .segment "CODE"
 
-ten32Bit: .byte 10, 0, 0, 0
+
+ARRAY       = $6000
+digits      = $300
+
+nines       = $80 ; 8-bit
+predigit    = $81 ; 8-bit
+q           = $82 ; 8-bit
+
+i           = $90 ; 16-bit
+j           = $92 ; 16-bit
+z           = $94 ; 32-bit
+
+arrayPtr    = $A0 ; 16-bit
+digitPtr    = $A2 ; 16-bit
+renderPtr   = $A4 ; 16-bit
 
 .proc piSpigot
-  N = 60
+  N = 120
   LEN = 10 * N / 3
   LEN_BYTES = 2 * LEN
 
-  ARRAY       = $6000
-  digits      = $300
-
-  nines       = $80 ; 8-bit
-  predigit    = $81 ; 8-bit
-  q           = $82 ; 8-bit
-
-  ARRAY_PTR   = $90 ; 16-bit
-  j           = $92 ; 16-bit
-  i           = $94 ; 16-bit
-  digitPtr    = $B0 ; 16-bit
-
-  z           = $A0 ; 32-bit
-
   lda #.LOBYTE(digits)
   sta digitPtr
+  sta renderPtr
   lda #.HIBYTE(digits)
   sta digitPtr + 1
+  sta renderPtr + 1
 
   .macro WriteDigit addr
     lda addr
+    clc
+    adc #$30
     ldy #0
     sta (digitPtr), y
-    lda digitPtr
-    clc
-    adc #1
-    sta digitPtr
-    lda digitPtr + 1
-    adc #0
-    sta digitPtr + 1
+    inc digitPtr
+    bne :+
+    inc digitPtr+1
+  :
   .endmacro
 
-  ; for (let x = len; x > 0; x--) {
+  ; for (let x = len; x > 0; x--) A[i] = 2;
   .scope
-    lda #.LOBYTE(ARRAY)
-    sta ARRAY_PTR
-    lda #.HIBYTE(ARRAY)
-    sta ARRAY_PTR + 1
-    lda #.LOBYTE(LEN)
-    sta $20
-    lda #.HIBYTE(LEN)
-    sta $21
-    ldy #0
-  loop:
-    ; A[i] = 2
-    ldy #0
+    ldx #0
     lda #2
-    sta (ARRAY_PTR), y
-    lda #0
-    iny
-    sta (ARRAY_PTR), y
-    ; x--
-    lda $20
-    sec
-    sbc #1
-    sta $20
-    lda $21
-    sbc #0
-    sta $21
-    ; x > 0
-    lda $20
-    bne next
-    lda $21
-    beq break
-  next:
-    lda ARRAY_PTR
-    clc
-    adc #2
-    sta ARRAY_PTR
-    lda ARRAY_PTR + 1
-    adc #0
-    sta ARRAY_PTR + 1
-    jmp loop
-  break:
-  ; }
+  arrayInitLoop:
+    sta ARRAY, x
+    sta ARRAY + $100, x
+    sta ARRAY + $200, x
+    sta ARRAY + $300, x
+    sta ARRAY + $400, x
+    sta ARRAY + $500, x
+    sta ARRAY + $600, x
+    sta ARRAY + $700, x
+    sta ARRAY + $800, x
+    sta ARRAY + $900, x
+    sta ARRAY + $1000, x
+    sta ARRAY + $1100, x
+    sta ARRAY + $1200, x
+    sta ARRAY + $1300, x
+    sta ARRAY + $1400, x
+    sta ARRAY + $1500, x
+    sta ARRAY + $1600, x
+    sta ARRAY + $1700, x
+    sta ARRAY + $1800, x
+    sta ARRAY + $1900, x
+    inx
+    inx
+    bne arrayInitLoop
   .endscope
 
   ; let nines = 0, predigit = 0, i = j = k = 0;
@@ -129,10 +115,10 @@ ten32Bit: .byte 10, 0, 0, 0
       lda #.LOBYTE(ARRAY)
       clc
       adc #.LOBYTE(LEN_BYTES - 2)
-      sta ARRAY_PTR
+      sta arrayPtr
       lda #.HIBYTE(ARRAY)
       adc #.HIBYTE(LEN_BYTES - 2)
-      sta ARRAY_PTR + 1
+      sta arrayPtr + 1
 
       ; i = len
       lda #.LOBYTE(LEN)
@@ -149,17 +135,20 @@ ten32Bit: .byte 10, 0, 0, 0
       lda #0
       sta $01
       ldy #0
-      lda (ARRAY_PTR), y
+      lda (arrayPtr), y
       sta $02
       iny
-      lda (ARRAY_PTR), y
+      lda (arrayPtr), y
       sta $03
       jsr mul16
-      ldx #3
-    : lda $10, x
-      sta $20, x
-      dex
-      bpl :-
+      lda $10
+      sta $20
+      lda $11
+      sta $21
+      lda $12
+      sta $22
+      lda $13
+      sta $23
 
       ; q * i -> $10
       lda q
@@ -200,13 +189,21 @@ ten32Bit: .byte 10, 0, 0, 0
       sta $07
       asl $04
       rol $05
+      rol $06
+      rol $07
       lda $04
       sec
       sbc #1
       sta $04
       lda $05
       sbc #0
+      sta $05
+      lda $06
+      sbc #0
       sta $06
+      lda $07
+      sbc #0
+      sta $07
 
       ; z -> $00
       lda z
@@ -219,15 +216,15 @@ ten32Bit: .byte 10, 0, 0, 0
       sta $03
 
       ; z / (2*i - 1)
-      jsr div32     ; z will never exceed 3 bytes, div24 is faster
+      jsr div32     ; note: z will never exceed 3 bytes, div24 is faster
 
       ; A[i] = z % (2*i - 1)
       ldy #0
       lda $0C
-      sta (ARRAY_PTR), y
+      sta (arrayPtr), y
       iny
       lda $0C + 1
-      sta (ARRAY_PTR), y
+      sta (arrayPtr), y
 
       ; q = (z / (2*i - 1)) | 0
       lda $00
@@ -247,14 +244,14 @@ ten32Bit: .byte 10, 0, 0, 0
       bne :+
       jmp break
 
-      ; ARRAY_PTR -= 2
-    : lda ARRAY_PTR
+      ; arrayPtr -= 2
+    : lda arrayPtr
       sec
       sbc #2
-      sta ARRAY_PTR
-      lda ARRAY_PTR + 1
+      sta arrayPtr
+      lda arrayPtr + 1
       sbc #0
-      sta ARRAY_PTR + 1
+      sta arrayPtr + 1
       jmp loop
     break:
     .endscope
@@ -275,30 +272,28 @@ ten32Bit: .byte 10, 0, 0, 0
     sta ARRAY+1
 
     .scope
-    isQNine:
-      ; if (q == 9) {
+      lda q
+      cmp #9
+      beq qIsNine
+
+      cmp #10
+      beq qIsTen
+      jmp otherwise
+
+    ; if (q == 9)
+    qIsNine:
+      ; nines++
+      inc nines
+      jmp next
+
+    ; else if (q == 10)
+    qIsTen:
+      ;  digits.push(predigit + 1)
+      inc predigit
+      WriteDigit predigit
+
+      ; for (let k = 1; k <= nines; k++) digits.push(0)
       .scope
-        lda #9
-        cmp q
-        bne isQTen
-        ; nines++
-        inc nines
-        jmp next
-      ; }
-      .endscope
-
-    isQTen:
-      ; else if (q == 10) {
-      .scope
-        lda #10
-        cmp q
-        bne otherwise
-
-        ;  digits.push(predigit + 1)
-        inc predigit
-        WriteDigit predigit
-
-        ;  for (let k = 1; k <= nines; k++) digits.push(0)
         ldx nines
         beq skipZerosLoop
       zerosLoop:
@@ -306,55 +301,41 @@ ten32Bit: .byte 10, 0, 0, 0
         dex
         bne zerosLoop
       skipZerosLoop:
-
-      ;   ldx nines
-      ; ninesLoop:
-      ;   WriteDigit #0
-      ;   dex
-      ;   bne ninesLoop
-
-        ;  predigit = nines = 0
-        lda #0
-        sta predigit
-        sta nines
-
-        jmp next
-      ; }
       .endscope
 
+      ;  predigit = nines = 0
+      lda #0
+      sta predigit
+      sta nines
+      jmp next
+
+    ; else
     otherwise:
-      ; else {
+      ; digits.push(predigit)
+      WriteDigit predigit
+
+      ; predigit = q
+      lda q
+      sta predigit
+
+      ; if (nines != 0)
+      ldx nines
+      beq next
+
+      ; for (let k = 1; k <= nines; k++) digits.push(9)
       .scope
-        ; digits.push(predigit)
-        WriteDigit predigit
-
-        ; predigit = q
-        lda q
-        sta predigit
-
-        ; if (nines != 0) {
-        .scope
-          lda nines
-          beq skip
-
-          ; for (let k = 1; k <= nines; k++) digits.push(9)
-          ldx nines
-        ninesLoop:
-          WriteDigit #9
-          dex
-          bne ninesLoop
-
-          ; nines = 0
-          lda #0
-          sta nines
-        ; }
-        skip:
-        .endscope
+      ninesLoop:
+        WriteDigit #9
+        dex
+        bne ninesLoop
       .endscope
-      ; }
+
+      ; nines = 0
+      stx nines
     next:
     .endscope
 
+    ; j--
     lda j
     sec
     sbc #1
@@ -363,6 +344,7 @@ ten32Bit: .byte 10, 0, 0, 0
     sbc #0
     sta j + 1
 
+    ; if (j == 0) break;
     lda j
     bne nextIteration
     lda j+1
@@ -380,17 +362,19 @@ ten32Bit: .byte 10, 0, 0, 0
 .proc main
   NesReset
   VramReset
-
-  jsr piSpigot
-
   jsr printNesHackerLogo
   jsr loadPalettes
   VramReset
   EnableRendering
+  ; EnableNMI
+
+  jsr piSpigot
+
 : jmp :-
 .endproc
 
 .proc nmi
+exit:
   VramReset
   rti
 .endproc
