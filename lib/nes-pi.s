@@ -28,6 +28,9 @@ LEN_BYTES = 2 * LEN
 ARRAY       = $6000
 digits      = $300
 
+vramAddr    = $60 ; 16-bit
+hasRendered = $62 ; 8-bit
+
 nines       = $80 ; 8-bit
 predigit    = $81 ; 8-bit
 q           = $82 ; 8-bit
@@ -355,15 +358,77 @@ renderPtr   = $A4 ; 16-bit
   jsr loadPalettes
   VramReset
   EnableRendering
-  ; EnableNMI
-
+  EnableNMI
   jsr piSpigot
-
 : jmp :-
 .endproc
 
+.proc renderDigit
+  lda hasRendered
+  bne renderNextDigit
+  bit PPU_STATUS
+  lda #$20
+  sta vramAddr + 1
+  sta PPU_ADDR
+  lda #$00
+  sta vramAddr
+  sta PPU_ADDR
+  lda #$33
+  sta PPU_DATA
+  lda #$2E
+  sta PPU_DATA
+  inc hasRendered
+  inc renderPtr
+  inc renderPtr
+  inc vramAddr
+  inc vramAddr
+  rts
+renderNextDigit:
+  lda digitPtr
+  sec
+  sbc renderPtr
+  sta $40
+  lda digitPtr + 1
+  sbc renderPtr + 1
+  sta $41
+  lda #0
+  cmp $41
+  beq :+
+  rts
+: cmp $40
+  bne :+
+  rts
+: bit PPU_STATUS
+  lda vramAddr + 1
+  sta PPU_ADDR
+  lda vramAddr
+  sta PPU_ADDR
+  ldy #0
+  lda (renderPtr), y
+  sta PPU_DATA
+  inc renderPtr
+  bne :+
+  inc renderPtr + 1
+: inc vramAddr
+  bne :+
+  inc vramAddr + 1
+: rts
+.endproc
+
 .proc nmi
-exit:
+  php
+  pha
+  txa
+  pha
+  tya
+  pha
+  jsr renderDigit
   VramReset
+  pla
+  tay
+  pla
+  tax
+  pla
+  plp
   rti
 .endproc

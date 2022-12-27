@@ -2,6 +2,8 @@ BUILD=./build
 NES=./nes
 LIB=./lib
 
+all: nes-pi nes-pi-small
+
 clean:
 	mkdir -p $(BUILD)
 	mkdir -p $(NES)

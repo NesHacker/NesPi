@@ -59,7 +59,7 @@
   rts
 @palettes:
   .byte $0F, $0F, $03, $32
-  .byte $0F, $2D, $16, $0F
+  .byte $0F, $10, $16, $0F
   .byte $0F, $03, $15, $32
   .byte $0F, $03, $15, $32
   .byte $0F, $03, $15, $32
@@ -69,7 +69,6 @@
 .endproc
 
 .proc printNesHackerLogo
-
   lineOneStart = ($2000 + 26*$20 + 15)
   bit $2002
   lda #.HIBYTE(lineOneStart)
