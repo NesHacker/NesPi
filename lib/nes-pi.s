@@ -21,7 +21,7 @@
 .segment "CODE"
 
 ; Constants
-N = 405
+N = 960
 LEN = 10 * N / 3
 LEN_BYTES = 2 * LEN
 
@@ -40,14 +40,31 @@ q           = $82   ; 8-bit
 i           = $90   ; 16-bit
 j           = $92   ; 16-bit
 
-z           = $A0   ; 32-bit
+checksum    = $A0   ; 8-bit
 
 ; Pointers
 arrayPtr    = $B0   ; 16-bit
 digitPtr    = $B2   ; 16-bit
 renderPtr   = $B4   ; 16-bit
 
+.proc writeDigit
+  tay
+  clc
+  adc checksum
+  sta checksum
+  tya
+  clc
+  adc #$30
+  ldy #0
+  sta (digitPtr), y
+  inc digitPtr
+  bne :+
+  inc digitPtr+1
+: rts
+.endproc
+
 .proc piSpigot
+  ; Initialize the digit and render pointers
   lda #.LOBYTE(digits)
   sta digitPtr
   sta renderPtr
@@ -57,65 +74,65 @@ renderPtr   = $B4   ; 16-bit
 
   .macro WriteDigit addr
     lda addr
-    clc
-    adc #$30
-    ldy #0
-    sta (digitPtr), y
-    inc digitPtr
-    bne :+
-    inc digitPtr+1
-  :
+    jsr writeDigit
   .endmacro
 
   ; for (let x = len; x > 0; x--) A[i] = 2;
   .scope
-    ldx #0
+    lda #.LOBYTE(ARRAY)
+    sta $00
+    lda #.HIBYTE(ARRAY)
+    sta $01
+    lda #.LOBYTE(LEN + 2)
+    sta $02
+    lda #.HIBYTE(LEN + 2)
+    sta $03
+  loop:
     lda #2
-  arrayInitLoop:
-    sta ARRAY, x
-    sta ARRAY + $100, x
-    sta ARRAY + $200, x
-    sta ARRAY + $300, x
-    sta ARRAY + $400, x
-    sta ARRAY + $500, x
-    sta ARRAY + $600, x
-    sta ARRAY + $700, x
-    sta ARRAY + $800, x
-    sta ARRAY + $900, x
-    sta ARRAY + $1000, x
-    sta ARRAY + $1100, x
-    sta ARRAY + $1200, x
-    sta ARRAY + $1300, x
-    sta ARRAY + $1400, x
-    sta ARRAY + $1500, x
-    sta ARRAY + $1600, x
-    sta ARRAY + $1700, x
-    sta ARRAY + $1800, x
-    sta ARRAY + $1900, x
-    sta ARRAY + $2000, x
-    inx
-    inx
-    bne arrayInitLoop
+    ldy #0
+    sta ($00), y
+    lda #0
+    ldy #1
+    sta ($00), y
+    lda $00
+    clc
+    adc #2
+    sta $00
+    lda $01
+    adc #0
+    sta $01
+    dec $02
+    lda #$FF
+    cmp $02
+    bne :+
+    dec $03
+  : lda $02
+    bne loop
+    lda $03
+    bne loop
   .endscope
 
-  ; let nines = 0, predigit = 0, i = j = k = 0;
-  ; This is redundant since memory was zeroed out during reset
+  ; let nines = 0, predigit = 0, i = j = 0;
+  lda #0
+  sta nines
+  sta predigit
+  sta i
+  sta i+1
+  sta j
+  sta j+1
 
-  ; for (let j = 1; j <= n; j++) {
+  ; for (let j = n; j >= 1; j--) {
   .scope
+    ; let j = n
     lda #.LOBYTE(N)
     sta j
     lda #.HIBYTE(N)
     sta j+1
-  loop:
 
-    ; let q = z = 0
+  loop:
+    ; let q = 0
     lda #0
     sta q
-    sta z
-    sta z + 1
-    sta z + 2
-    sta z + 3
 
     ; for (let i = len; i >= 1; i--) {
     .scope
@@ -145,7 +162,7 @@ renderPtr   = $B4   ; 16-bit
       ldy #0
       lda (arrayPtr), y
       sta $02
-      iny
+      ldy #1
       lda (arrayPtr), y
       sta $03
       jsr mul16
@@ -170,34 +187,33 @@ renderPtr   = $B4   ; 16-bit
       sta $03
       jsr mul16
 
-      ; z = $20 + $10 = 10*A[i] + q*i
+      ; z = $20 + $10 = 10*A[i] + q*i -> [$00-$02]
       lda $10
       clc
       adc $20
-      sta z
+      sta $00
       lda $11
       adc $21
-      sta z + 1
+      sta $01
       lda $12
       adc $22
-      sta z + 2
-      lda $13
-      adc $23
-      sta z + 3
+      sta $02
 
       ; A[i] = z % (2*i - 1)
       ; q = (z / (2*i - 1)) | 0
 
-      ; (2*i - 1) = ((i << 1) - 1) -> $04
+      ; (2*i - 1) = ((i << 1) - 1) -> [$03-$05]
       lda i
       sta $03
       lda i+1
       sta $04
       lda #0
       sta $05
+
       asl $03
       rol $04
       rol $05
+
       lda $03
       sec
       sbc #1
@@ -209,23 +225,15 @@ renderPtr   = $B4   ; 16-bit
       sbc #0
       sta $05
 
-      ; z -> $00
-      lda z
-      sta $00
-      lda z + 1
-      sta $01
-      lda z + 2
-      sta $02
-
       ; z / (2*i - 1)
       jsr div24
 
       ; A[i] = z % (2*i - 1)
-      ldy #0
       lda $09
+      ldy #0
       sta (arrayPtr), y
-      iny
       lda $09 + 1
+      ldy #1
       sta (arrayPtr), y
 
       ; q = z / (2*i - 1)

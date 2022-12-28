@@ -83,12 +83,10 @@
   rts
 .endproc
 
-;
 ; Multiplies two 16 bit numbers and returns a 32-bit result.
 ; @param [$00-$01] First 16-bit operand.
 ; @param [$02-$03] Second 16-bit operand.
 ; @return [$10-$13] 32-bit result.
-;
 .proc mul16
   NUM1 = $00
   NUM2 = $02
@@ -191,7 +189,6 @@
   sta SUB
   bcc @skip_increment
   ; Record a "1" and store the resulting remainder
-  lda SUB
   sta REM
   inc DIVIDEND
 @skip_increment:
@@ -199,6 +196,35 @@
   bne @loop
   rts
 .endproc
+
+.proc div16
+  NUM1 = $00
+  NUM2 = $02
+  REM = $04
+  lda #0
+  sta REM
+  sta REM+1
+  ldx #16
+@loop:
+  asl NUM1    ;Shift hi bit of NUM1 into REM
+  rol NUM1+1  ;(vacating the lo bit, which will be used for the quotient)
+  rol REM
+  rol REM+1
+  lda REM
+  sec         ;Trial subtraction
+  sbc NUM2
+  tay
+  lda REM+1
+  sbc NUM2+1
+  bcc :+      ;Did subtraction succeed?
+  sta REM+1   ;If yes, save it
+  sty REM
+  inc NUM1    ;and record a 1 in the quotient
+: dex
+  bne @loop
+  rts
+.endproc
+
 
 .proc div24
   DIVIDEND = $00
@@ -220,25 +246,32 @@
   rol REM
   rol REM+1
   rol REM+2
+
   ; Perform the test subtraction
   lda REM
   sec
   sbc DIVISOR
   sta SUB
+
   lda REM+1
   sbc DIVISOR+1
   sta SUB+1
+
   lda REM+2
   sbc DIVISOR+2
   sta SUB+2
+
   bcc @skip_increment
+
   ; Record a "1" and store the resulting remainder
+  ; lda SUB+2
   sta REM+2
   lda SUB+1
   sta REM+1
   lda SUB
   sta REM
   inc DIVIDEND
+
 @skip_increment:
   dex
   bne @loop
@@ -255,11 +288,6 @@
   DIVISOR = $04   ; The 4-byte Divisor for the division (denominator)
   SUB = $08       ; 4-bytes to store the result of the test subtraction.
   REM = $0C       ; 4-bytes to store the running remainder.
-
-  ; Push the current values of A and X to the stack
-  pha
-  txa
-  pha
 
   ; Zero-out the Remainder memory
   lda #0
@@ -310,11 +338,6 @@
 @skip_increment:
   dex
   bne @loop
-
-  ; Restore the values of A and X from the stack
-  pla
-  tax
-  pla
 
   rts
 .endproc
