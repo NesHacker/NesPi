@@ -1,6 +1,6 @@
-.include "common.s"
-.include "ppu.s"
-.include "math32.s"
+.include "lib/common.s"
+.include "lib/ppu.s"
+.include "lib/math.s"
 
 .segment "HEADER"
   .byte $4E, $45, $53, $1A  ; iNES header identifier
