@@ -1,12 +1,11 @@
 BUILD=./build
-NES=./nes
 LIB=./lib
 
 all:
+	mkdir -p $(BUILD)
 	ca65 -t nes -o $(BUILD)/nes-pi.o nes-pi.s
-	cl65 -t nes -o $(NES)/nes-pi.nes $(BUILD)/nes-pi.o
+	cl65 -t nes -o nes-pi.nes $(BUILD)/nes-pi.o
 
 clean:
 	mkdir -p $(BUILD)
-	mkdir -p $(NES)
-	rm -rf build/*.o nes/*.nes
+	rm -rf build/*.o nes-pi.nes
