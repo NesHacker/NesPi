@@ -373,14 +373,11 @@ renderPtr   = $B4   ; 16-bit
 .proc main
   NesReset
   VramReset
-
-  jsr piSpigot
-
   jsr loadPalettes
   VramReset
   EnableRendering
-  ; EnableNMI
-
+  EnableNMI
+  jsr piSpigot
 : jmp :-
 .endproc
 
