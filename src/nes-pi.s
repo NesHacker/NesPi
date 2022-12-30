@@ -68,10 +68,10 @@
 .endmacro
 
 .enum GameState
-  pretitle
-  title
-  digit_select
-  spigot_calculation
+  pretitle      = 0
+  title         = 1
+  digit_select  = 2
+  calculate     = 3
 .endenum
 
 .macro SetGameState value
@@ -90,12 +90,16 @@
 digitPtr    = $A2   ; 16-bit
 renderPtr   = $A4   ; 16-bit
 
+.include "bcd.s"
 .include "ppu.s"
 .include "draw.s"
 .include "joypad.s"
+
+.include "pi_spigot.s"
+
 .include "state/pretitle.s"
 .include "state/title.s"
-.include "pi_spigot.s"
+.include "state/digit_select.s"
 
 .segment "HEADER"
   .byte $4E, $45, $53, $1A  ; iNES header identifier
@@ -158,7 +162,8 @@ renderPtr   = $A4   ; 16-bit
 .endproc
 
 .proc main
-  SetGameState GameState::pretitle
+  ; SetGameState #GameState::pretitle
+  SetGameState #GameState::digit_select
   EnableNMI
 @loop:
   bit Game::flags
@@ -200,31 +205,33 @@ renderPtr   = $A4   ; 16-bit
 .endproc
 
 .macro JumpTable index, low, high
+.scope
   ldx index
   lda low, x
   sta $20
   lda high, x
   sta $21
   jmp ($0020)
+.endscope
 .endmacro
 
 .proc executeInitHandler
   JumpTable Game::state, low, high
-.define InitHandler pretitle::init, title::init
-low: .lobytes InitHandler
-high: .hibytes InitHandler
+.define InitHandlers pretitle::init, title::init, digit_select::init
+low: .lobytes InitHandlers
+high: .hibytes InitHandlers
 .endproc
 
 .proc executeDrawHandler
   JumpTable Game::state, low, high
-.define DrawHandler pretitle::draw, title::draw
-low: .lobytes DrawHandler
-high: .hibytes DrawHandler
+.define DrawHandlers pretitle::draw, title::draw, digit_select::draw
+low: .lobytes DrawHandlers
+high: .hibytes DrawHandlers
 .endproc
 
 .proc executeGameLoopHandler
   JumpTable Game::state, low, high
-.define GameLoopHandler pretitle::game_loop, title::game_loop
-low:  .lobytes GameLoopHandler
-high: .hibytes GameLoopHandler
+.define GameLoopHandlers pretitle::game_loop, title::game_loop, digit_select::game_loop
+low:  .lobytes GameLoopHandlers
+high: .hibytes GameLoopHandlers
 .endproc

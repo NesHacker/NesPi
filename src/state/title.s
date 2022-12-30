@@ -1,16 +1,72 @@
 .segment "CODE"
 
 .scope title
+  .scope Transition
+    FRAME_DURATION = 4
+
+    flag = $65
+    timer = $66
+    colorIndex = $67
+
+    .proc init
+      lda #FRAME_DURATION
+      sta timer
+      lda #0
+      sta colorIndex
+      rts
+    .endproc
+
+    .proc transition_game_state
+      SetGameState #GameState::digit_select
+      rts
+    .endproc
+
+    .proc update
+      lda flag
+      bne @animate
+      rts
+    @animate:
+      Vram PALETTE + 2
+      lda #$0F
+      sta PPU_DATA
+      ldx colorIndex
+      lda text_colors, x
+      sta PPU_DATA
+      Vram PALETTE + 3*4 + 3
+      lda pi_colors, x
+      sta PPU_DATA
+      dex
+      bmi @transition
+      stx colorIndex
+      rts
+    @transition:
+      jsr transition_game_state
+      rts
+    .endproc
+
+    text_colors: .byte $22, $12, $02, $0F
+    pi_colors:   .byte $20, $10, $00, $0F
+  .endscope
+
   .scope PiColor
-    color = $60
-    timer = $61
     DURATION = 6
+
+    colorIndex = $60
+    timer = $61
 
     .proc init
       lda #0
-      sta color
+      sta colorIndex
       lda #DURATION
       sta timer
+      rts
+    .endproc
+
+    .proc update
+      lda Transition::flag
+      bne @skip
+      jsr cycle_color
+    @skip:
       rts
     .endproc
 
@@ -22,14 +78,14 @@
     : lda #DURATION
       sta timer
       Vram (PALETTE + 12 + 3)
-      ldx color
+      ldx colorIndex
       lda color_table, x
       sta PPU_DATA
       inx
       cpx #sequenceLength
       bne :+
       ldx #0
-    : stx color
+    : stx colorIndex
       rts
     color_table:
       .byte $01, $11, $21, $21, $21, $21, $21, $21, $11, $01, $0F, $0F
@@ -76,6 +132,14 @@
     .endproc
 
     .proc update
+      lda Transition::flag
+      bne @skip
+      jsr update_text
+    @skip:
+      rts
+    .endproc
+
+    .proc update_text
       lda enabled
       bne @animate
       rts
@@ -111,7 +175,6 @@
     text_palette: .byte $0F, $0F, $03, $32
   .endscope
 
-
   .proc draw_pi
     DrawImage image_pi, 8, 6, $60
     FillAttributes attr_pi
@@ -123,17 +186,29 @@
     jsr draw_pi
     jsr PiColor::init
     jsr PressStart::init
+    jsr Transition::init
     VramReset
     rts
   .endproc
 
   .proc draw
-    jsr PiColor::cycle_color
+    jsr PiColor::update
     jsr PressStart::update
+    jsr Transition::update
     rts
   .endproc
 
   .proc game_loop
+    lda Transition::flag
+    beq @check_controller
+    rts
+  @check_controller:
+    lda JOYPAD1_BITMASK
+    and #BUTTON_START
+    beq @skip
+    lda #1
+    sta Transition::flag
+  @skip:
     rts
   .endproc
 

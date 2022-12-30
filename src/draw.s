@@ -113,16 +113,15 @@
 .endscope
 .endmacro
 
-.proc fill_attributes
-  rlePtr = $30
-  Vram ATTR_A
+.proc vram_rle_fill
+  pointer = $30
   ldy #0
 @loop:
-  lda (rlePtr), y
+  lda (pointer), y
   beq @break
   tax
   iny
-  lda (rlePtr), y
+  lda (pointer), y
 @writeLoop:
   sta PPU_DATA
   dex
@@ -135,10 +134,11 @@
 
 .macro FillAttributes attrLabel
   lda #.LOBYTE(attrLabel)
-  sta fill_attributes::rlePtr
+  sta vram_rle_fill::pointer
   lda #.HIBYTE(attrLabel)
-  sta fill_attributes::rlePtr + 1
-  jsr fill_attributes
+  sta vram_rle_fill::pointer + 1
+  Vram ATTR_A
+  jsr vram_rle_fill
 .endmacro
 
 .proc load_palettes
