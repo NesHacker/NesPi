@@ -1,26 +1,58 @@
-N = 960
-LEN = 10 * N / 3
-LEN_BYTES = 2 * LEN
-
-ARRAY       = $6000 ; Array[16-bit]
-digits      = $300  ; Array[8-bit]
-
-checksum    = $80   ; 8-bit
-nines       = $81   ; 8-bit
-predigit    = $82   ; 8-bit
-q           = $83   ; 8-bit
-
-i           = $90   ; 16-bit
-j           = $92   ; 16-bit
-n           = $94   ; 16-bit
-len         = $96   ; 16-bit
-len_bytes   = $98   ; 16-bit
-
-arrayPtr    = $A0   ; 16-bit
-digitPtr    = $A2   ; 16-bit
-renderPtr   = $A4   ; 16-bit
-
 .segment "CODE"
+
+.proc draw_digit
+  vramAddr    = $60   ; 16-bit
+  hasRendered = $62   ; 8-bit
+  lda hasRendered
+  bne renderNextDigit
+  bit PPU_STATUS
+  lda #$20
+  sta vramAddr + 1
+  sta PPU_ADDR
+  lda #$00
+  sta vramAddr
+  sta PPU_ADDR
+  lda #$33
+  sta PPU_DATA
+  lda #$2E
+  sta PPU_DATA
+  inc hasRendered
+  inc renderPtr
+  inc renderPtr
+  inc vramAddr
+  inc vramAddr
+  rts
+renderNextDigit:
+  lda digitPtr
+  sec
+  sbc renderPtr
+  sta $40
+  lda digitPtr + 1
+  sbc renderPtr + 1
+  sta $41
+  lda #0
+  cmp $41
+  beq :+
+  rts
+: cmp $40
+  bne :+
+  rts
+: bit PPU_STATUS
+  lda vramAddr + 1
+  sta PPU_ADDR
+  lda vramAddr
+  sta PPU_ADDR
+  ldy #0
+  lda (renderPtr), y
+  sta PPU_DATA
+  inc renderPtr
+  bne :+
+  inc renderPtr + 1
+: inc vramAddr
+  bne :+
+  inc vramAddr + 1
+: rts
+.endproc
 
 .proc mul16
   NUM1 = $00
@@ -131,7 +163,8 @@ renderPtr   = $A4   ; 16-bit
   rts
 .endproc
 
-.proc writeDigit
+.proc write_digit
+  checksum    = $80   ; 8-bit
   tay
   clc
   adc checksum
@@ -147,7 +180,31 @@ renderPtr   = $A4   ; 16-bit
 : rts
 .endproc
 
-.proc piSpigot
+.macro WriteDigit addr
+  lda addr
+  jsr write_digit
+.endmacro
+
+.proc pi_spigot
+  N = 960
+  LEN = 10 * N / 3
+  LEN_BYTES = 2 * LEN
+
+  ARRAY       = $6000 ; Array[16-bit]
+  digits      = $300  ; Array[8-bit]
+
+  nines       = $81   ; 8-bit
+  predigit    = $82   ; 8-bit
+  q           = $83   ; 8-bit
+
+  i           = $90   ; 16-bit
+  j           = $92   ; 16-bit
+  n           = $94   ; 16-bit
+  len         = $96   ; 16-bit
+  len_bytes   = $98   ; 16-bit
+
+  arrayPtr    = $A0   ; 16-bit
+
   ; Initialize the digit and render pointers
   lda #.LOBYTE(digits)
   sta digitPtr
@@ -155,11 +212,6 @@ renderPtr   = $A4   ; 16-bit
   lda #.HIBYTE(digits)
   sta digitPtr + 1
   sta renderPtr + 1
-
-  .macro WriteDigit addr
-    lda addr
-    jsr writeDigit
-  .endmacro
 
   ; for (let x = len; x > 0; x--) A[i] = 2;
   .scope

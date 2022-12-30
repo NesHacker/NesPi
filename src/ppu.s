@@ -120,8 +120,18 @@ PALETTE     = $3f00
   sta PPU_MASK
 .endmacro
 
+.macro DisableRendering
+  lda #0
+  sta PPU_MASK
+.endmacro
+
 .macro EnableNMI
   lda #%10000000
+  sta PPU_CTRL
+.endmacro
+
+.macro DisableNMI
+  lda #0
   sta PPU_CTRL
 .endmacro
 

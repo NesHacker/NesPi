@@ -49,8 +49,53 @@
 ;               off-limits to the rest of the program.
 ;-------------------------------------------------------------------------------
 
-.include "lib/render.s"
-.include "lib/pi_spigot.s"
+.scope Game
+  FRAME_FLAG = %10000000
+  state = $40
+  flags = $41
+.endscope
+
+.macro SetGameFlag mask
+  lda #mask
+  ora Game::flags
+  sta Game::flags
+.endmacro
+
+.macro ClearGameFlag mask
+  lda #mask
+  eor Game::flags
+  sta Game::flags
+.endmacro
+
+.enum GameState
+  pretitle
+  title
+  digit_select
+  spigot_calculation
+.endenum
+
+.macro SetGameState value
+.scope
+  lda value
+  sta Game::state
+  DisableRendering
+  jsr executeInitHandler
+@vblank_wait:
+  bit PPU_STATUS
+  bpl @vblank_wait
+  EnableRendering
+.endscope
+.endmacro
+
+digitPtr    = $A2   ; 16-bit
+renderPtr   = $A4   ; 16-bit
+
+.include "ppu.s"
+.include "draw.s"
+.include "joypad.s"
+.include "state/pretitle.s"
+.include "state/title.s"
+.include "pi_spigot.s"
 
 .segment "HEADER"
   .byte $4E, $45, $53, $1A  ; iNES header identifier
@@ -79,15 +124,14 @@
   ldx #$ff
   txs
   ldx #0
-  stx $2000
-  stx $2001
+  stx PPU_CTRL
+  stx PPU_MASK
   stx $4010
-  bit $2002
-: bit $2002
+  bit PPU_STATUS
+: bit PPU_STATUS
   bpl :-
   ldx #0
-@loop:
-  lda #$00
+: lda #0
   sta $0000, x
   sta $0100, x
   sta $0200, x
@@ -97,43 +141,90 @@
   sta $0600, x
   sta $0700, x
   inx
-  bne @loop
-: bit $2002
+  bne :-
+: bit PPU_STATUS
   bpl :-
-  bit $2002
-  lda #$3f
-  sta $2006
+  bit PPU_STATUS
+  lda #$3F
+  sta PPU_ADDR
   lda #$00
-  sta $2006
+  sta PPU_ADDR
   lda #$0F
   ldx #$20
-@paletteLoadLoop:
-  sta $2007
+: sta PPU_DATA
   dex
-  bne @paletteLoadLoop
-  jsr loadPalettes
+  bne :-
   jmp main
 .endproc
 
-.proc nmi
+.proc main
+  SetGameState GameState::pretitle
+  EnableNMI
+@loop:
+  bit Game::flags
+  bpl @loop
+  ClearGameFlag Game::FRAME_FLAG
+  ReadJoypad1
+  jsr executeGameLoopHandler
+  jmp @loop
+.endproc
+
+.macro PushState
   php
   pha
   txa
   pha
   tya
   pha
-  jsr render
+.endmacro
+
+.macro PullState
   pla
   tay
   pla
   tax
   pla
   plp
+.endmacro
+
+.proc nmi
+  PushState
+  bit Game::state
+  bmi @return
+  jsr executeDrawHandler
+  VramReset
+  SetGameFlag Game::FRAME_FLAG
+@return:
+  PullState
   rti
 .endproc
 
-.proc main
-  jsr initializePPU
-  ; jsr piSpigot
-: jmp :-
+.macro JumpTable index, low, high
+  ldx index
+  lda low, x
+  sta $20
+  lda high, x
+  sta $21
+  jmp ($0020)
+.endmacro
+
+.proc executeInitHandler
+  JumpTable Game::state, low, high
+.define InitHandler pretitle::init, title::init
+low: .lobytes InitHandler
+high: .hibytes InitHandler
+.endproc
+
+.proc executeDrawHandler
+  JumpTable Game::state, low, high
+.define DrawHandler pretitle::draw, title::draw
+low: .lobytes DrawHandler
+high: .hibytes DrawHandler
+.endproc
+
+.proc executeGameLoopHandler
+  JumpTable Game::state, low, high
+.define GameLoopHandler pretitle::game_loop, title::game_loop
+low:  .lobytes GameLoopHandler
+high: .hibytes GameLoopHandler
 .endproc
