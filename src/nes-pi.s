@@ -112,7 +112,7 @@ renderPtr   = $A4   ; 16-bit
 .segment "STARTUP"
 
 .segment "CHARS"
-.incbin "./bin/CHR-ROM.bin"
+.incbin "./src/bin/CHR-ROM.bin"
 
 .segment "CODE"
 

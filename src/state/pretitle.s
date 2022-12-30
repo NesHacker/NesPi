@@ -153,7 +153,7 @@
     rts
   .endproc
 
-  image_neshacker:  .incbin "./bin/image/neshacker.bin"
+  image_neshacker:  .incbin "./src/bin/neshacker.bin"
   attr_neshacker:   .byte 24, 0, 3, %01010101, 5, %10101010, 8, %00000000, 0
   str_presents:     .byte "PRESENTS", 0
 .endscope

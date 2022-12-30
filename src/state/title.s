@@ -21,7 +21,7 @@
       rts
     : lda #DURATION
       sta timer
-      Vram (PALETTE + 3)
+      Vram (PALETTE + 12 + 3)
       ldx color
       lda color_table, x
       sta PPU_DATA
@@ -47,8 +47,73 @@
     .endproc
   .endscope
 
+  .scope PressStart
+    INITAL_DURATION = 80
+    TYPE_DURATION = 6
+    TEXT_ROW = 24
+    TEXT_COL = 10
+    TEXT_VRAM_START = $2000 + ($20 * TEXT_ROW) + TEXT_COL
+
+    textIndex = $62
+    timer = $63
+    enabled = $64
+
+    .proc init
+      lda #0
+      sta textIndex
+      lda #1
+      sta enabled
+      lda #INITAL_DURATION
+      sta timer
+      Vram PALETTE
+      ldx #0
+    : lda text_palette, x
+      sta PPU_DATA
+      inx
+      cpx #4
+      bne :-
+      rts
+    .endproc
+
+    .proc update
+      lda enabled
+      bne @animate
+      rts
+    @animate:
+      dec timer
+      beq @next
+      rts
+    @next:
+      lda #TYPE_DURATION
+      sta timer
+      bit PPU_STATUS
+      lda #.LOBYTE(TEXT_VRAM_START)
+      clc
+      adc textIndex
+      tax
+      lda #.HIBYTE(TEXT_VRAM_START)
+      adc #0
+      sta PPU_ADDR
+      stx PPU_ADDR
+      ldx textIndex
+      lda str_press_start, x
+      beq @end_animation
+      sta PPU_DATA
+      inc textIndex
+      rts
+    @end_animation:
+      lda #0
+      sta enabled
+      rts
+    .endproc
+
+    str_press_start: .byte "PRESS START!", 0
+    text_palette: .byte $0F, $0F, $03, $32
+  .endscope
+
+
   .proc draw_pi
-    DrawImage image_pi, 8, 7, $60
+    DrawImage image_pi, 8, 6, $60
     FillAttributes attr_pi
     rts
   .endproc
@@ -57,12 +122,14 @@
     jsr clear_screen
     jsr draw_pi
     jsr PiColor::init
+    jsr PressStart::init
     VramReset
     rts
   .endproc
 
   .proc draw
     jsr PiColor::cycle_color
+    jsr PressStart::update
     rts
   .endproc
 
@@ -70,6 +137,6 @@
     rts
   .endproc
 
-  image_pi:         .incbin "./bin/image/pi.bin"
-  attr_pi:          .byte 64, %00000000, 0
+  image_pi:     .incbin "./src/bin/pi.bin"
+  attr_pi:      .byte 48, %11111111, 16, %00000000, 0
 .endscope
