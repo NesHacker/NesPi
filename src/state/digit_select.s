@@ -1,7 +1,7 @@
 .segment "CODE"
 
 .scope digit_select
-  MIN_N         = 12
+  MIN_N         = 1
   MAX_N         = 960
   REPEAT_DELAY  = 20
   REPEAT_FRAMES = 2
@@ -50,6 +50,34 @@
     rts
   .endproc
 
+  .proc clamp_digits
+    lda digits + 1
+    bmi @too_small
+    lda #.LOBYTE(MAX_N)
+    sec
+    sbc digits
+    lda #.HIBYTE(MAX_N)
+    sbc digits + 1
+    bcc @too_big
+    lda digits
+    bne @return
+    lda digits + 1
+    beq @too_small
+  @return:
+    rts
+  @too_small:
+    lda #1
+    sta digits
+    lda #0
+    sta digits + 1
+    rts
+  @too_big:
+    lda #.LOBYTE(MAX_N)
+    sta digits
+    lda #.HIBYTE(MAX_N)
+    sta digits + 1
+    rts
+  .endproc
 
   .proc increment_digits
     increment = $21
@@ -66,7 +94,7 @@
     lda digits + 1
     adc #0
     sta digits + 1
-    ; TODO: Add bounds checking
+    jsr clamp_digits
     jmp @done
   @subtract:
     lda digits
@@ -76,7 +104,7 @@
     lda digits + 1
     sbc #0
     sta digits + 1
-    ; TODO: Add bounds checking
+    jsr clamp_digits
   @done:
     BinaryToBcd16 digits
     lda #1
