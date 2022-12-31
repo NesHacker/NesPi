@@ -165,6 +165,9 @@
   .endproc
 
   .proc game_loop
+    lda JOYPAD1_BITMASK_LAST
+    and #BUTTON_START
+    bne @dpad
     lda JOYPAD1_BITMASK
     and #BUTTON_START
     beq @dpad

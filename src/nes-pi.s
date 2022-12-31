@@ -92,6 +92,7 @@
 .include "lib/draw.s"
 .include "lib/joypad.s"
 .include "lib/math.s"
+.include "lib/mmc1.s"
 
 .include "pi_spigot.s"
 
@@ -99,12 +100,11 @@
 .include "state/title.s"
 .include "state/digit_select.s"
 
-
 .segment "HEADER"
   .byte $4E, $45, $53, $1A  ; iNES header identifier
   .byte 2                   ; 2x 16KB PRG-ROM Banks
   .byte 1                   ; 1x  8KB CHR-ROM
-  .byte %00010000           ; mapper 1 (MMC1), vertical mirroring
+  .byte $10                 ; mapper 1 (MMC1)
   .byte $00                 ; System: NES
 
 .segment "VECTORS"
@@ -157,6 +157,9 @@
 : sta PPU_DATA
   dex
   bne :-
+  jsr mmc1_reset
+  lda #%00000011
+  jsr mmc1_write_control
   jmp main
 .endproc
 
@@ -181,43 +184,31 @@
   jmp @loop
 .endproc
 
-.macro PushState
+.proc nmi
   php
   pha
   txa
   pha
   tya
   pha
-.endmacro
-
-.macro PullState
+  lda Game::state
+  cmp #GameState::calculate
+  bne @not_calculating
+  jsr pi_spigot::draw
+  jmp @return
+@not_calculating:
+  bit Game::flags
+  bmi @return
+  jsr executeDrawHandler
+  SetGameFlag Game::FRAME_FLAG
+  VramReset
+@return:
   pla
   tay
   pla
   tax
   pla
   plp
-.endmacro
-
-.proc nmi
-  PushState
-  lda Game::state
-  cmp #GameState::calculate
-  bne @not_calculate
-  ; jsr calculate::update
-  ; jsr calculate::draw
-
-  jsr pi_spigot::draw
-
-  jmp @return
-@not_calculate:
-  bit Game::flags
-  bmi @return
-  jsr executeDrawHandler
-  SetGameFlag Game::FRAME_FLAG
-@return:
-  VramReset
-  PullState
   rti
 .endproc
 

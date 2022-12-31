@@ -28,7 +28,7 @@
   array       = $6000 ; Array[16-bit]
 
   .scope LeadDigitAnimation
-    FRAME_DURATION = 4
+    FRAME_DURATION = 3
     NUM_FRAMES = 4
 
     frame = $6A
@@ -83,11 +83,110 @@
       .byte $AC, $AD, $AE, $AF
   .endscope
 
+  .scope StartMenu
+    OPEN_Y = 175
+    CLOSED_Y = 239
+
+    .enum State
+      closed = 0
+      opening = 1
+      open = 2
+      closing = 3
+    .endenum
+
+    state = $6C
+    scrollY = $6D
+    timer = $6E
+
+    .proc init
+      lda #State::closed
+      sta state
+      lda #CLOSED_Y
+      sta scrollY
+      Vram NAMETABLE_C + 32 * 15
+      lda #.LOBYTE(menu_border)
+      sta vram_rle_fill::pointer
+      lda #.HIBYTE(menu_border)
+      sta vram_rle_fill::pointer + 1
+      jsr vram_rle_fill
+      rts
+    .endproc
+
+    .proc draw
+      lda state
+      cmp #State::opening
+      beq @opening
+      cmp #State::closing
+      beq @closing
+    @check_start_press:
+      lda JOYPAD1_BITMASK_LAST
+      and #BUTTON_START
+      bne @return
+      lda JOYPAD1_BITMASK
+      and #BUTTON_START
+      beq @return
+      lda state
+      beq @closed
+    @open:
+      lda #State::closing
+      sta state
+      rts
+    @closed:
+      lda #State::opening
+      sta state
+      rts
+    @opening:
+      ldx scrollY
+      dex
+      dex
+      dex
+      dex
+      cpx #OPEN_Y
+      bne @save_scroll
+      lda #State::open
+      sta state
+      jmp @save_scroll
+    @closing:
+      ldx scrollY
+      inx
+      inx
+      inx
+      inx
+      cpx #CLOSED_Y
+      bne @save_scroll
+      lda #State::closed
+      sta state
+    @save_scroll:
+      stx scrollY
+    @return:
+      rts
+    .endproc
+
+    menu_border:
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $0A, 30, $01, 1, $0B
+      .byte 1, $06, 30, $09, 1, $07
+      .byte 0
+  .endscope
+
   .proc init
     jsr clear_data
     jsr init_data
     jsr init_vram
     jsr LeadDigitAnimation::init
+    jsr StartMenu::init
     rts
   .endproc
 
@@ -101,16 +200,23 @@
     bne :-
     dey
     bne :--
+    Vram ATTR_C
+    ldx #64
+    lda #%01010101
+  : sta PPU_DATA
+    dex
+    bne :-
     Vram PALETTE
     ldx #0
   : lda @palette, x
     sta PPU_DATA
     inx
-    cpx #4
+    cpx #8
     bne :-
     rts
   @palette:
     .byte $0F, $0F, $03, $3A
+    .byte $0F, $11, $03, $20
   .endproc
 
   .proc clear_data
@@ -281,8 +387,19 @@
   .endproc
 
   .proc draw
+    ReadJoypad1
+
     jsr draw_digit
     jsr LeadDigitAnimation::draw
+    jsr StartMenu::draw
+
+    lda #0
+    sta PPU_SCROLL
+    lda StartMenu::scrollY
+    sta PPU_SCROLL
+    lda #%10000010
+    sta PPU_CTRL
+
     rts
   .endproc
 
