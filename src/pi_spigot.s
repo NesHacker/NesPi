@@ -27,10 +27,67 @@
   digits      = $300  ; Array[8-bit]
   array       = $6000 ; Array[16-bit]
 
+  .scope LeadDigitAnimation
+    FRAME_DURATION = 4
+    NUM_FRAMES = 4
+
+    frame = $6A
+    timer = $6B
+
+    .proc init
+      lda #0
+      sta frame
+      lda #FRAME_DURATION
+      sta timer
+      rts
+    .endproc
+
+    .proc draw
+      lda #.LOBYTE(MAX_DIGITS)
+      sec
+      sbc digitsFound
+      lda #.HIBYTE(MAX_DIGITS)
+      sbc digitsFound + 1
+      bcs @check_active
+      rts
+    @check_active:
+      bit PPU_STATUS
+      lda vramAddr + 1
+      sta PPU_ADDR
+      lda vramAddr
+      sta PPU_ADDR
+      lda calcOn
+      bne @animate
+      lda #0
+      sta PPU_DATA
+      rts
+    @animate:
+      dec timer
+      bne @draw
+      lda #FRAME_DURATION
+      sta timer
+      inc frame
+      lda #NUM_FRAMES
+      cmp frame
+      bne @draw
+      lda #0
+      sta frame
+    @draw:
+      ldx frame
+      lda frames, x
+      sta PPU_DATA
+      rts
+    .endproc
+
+    frames:
+      .byte $AC, $AD, $AE, $AF
+  .endscope
+
   .proc init
     jsr clear_data
     jsr init_data
     jsr init_vram
+    jsr LeadDigitAnimation::init
     rts
   .endproc
 
@@ -171,7 +228,7 @@
     rts
   .endproc
 
-  .proc draw
+  .proc draw_digit
     lda hasRendered
     bne renderNextDigit
     bit PPU_STATUS
@@ -221,6 +278,12 @@
     bne :+
     inc vramAddr + 1
   : rts
+  .endproc
+
+  .proc draw
+    jsr draw_digit
+    jsr LeadDigitAnimation::draw
+    rts
   .endproc
 
   .proc write_digit
