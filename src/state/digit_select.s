@@ -144,11 +144,22 @@
   .endproc
 
   .proc transition
+    DisableRendering
+    DisableNMI
+
+    lda #GameState::calculate
+    sta Game::state
+
     lda digits
     sta pi_spigot::n
     lda digits + 1
     sta pi_spigot::n + 1
+
     jsr pi_spigot::init
+
+    VramReset
+    EnableNMI
+    EnableRendering
     rts
   .endproc
 

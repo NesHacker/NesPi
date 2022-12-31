@@ -29,17 +29,13 @@
   array       = $6000 ; Array[16-bit]
 
   .proc init
-    DisableRendering
-    DisableNMI
-
-    lda #GameState::calculate
-    sta Game::state
-
     jsr clear_data
     jsr init_data
+    jsr init_vram
+    rts
+  .endproc
 
-    jsr load_palettes
-
+  .proc init_vram
     Vram $2000
     ldy #4
     lda #0
@@ -49,11 +45,16 @@
     bne :-
     dey
     bne :--
-
-    VramReset
-    EnableNMI
-    EnableRendering
+    Vram PALETTE
+    ldx #0
+  : lda @palette, x
+    sta PPU_DATA
+    inx
+    cpx #4
+    bne :-
     rts
+  @palette:
+    .byte $0F, $0F, $03, $3A
   .endproc
 
   .proc clear_data
@@ -83,6 +84,78 @@
   .endproc
 
   .proc init_data
+    ; Calculate length and length in bytes for the table
+    lda #10
+    sta $00
+    lda #0
+    sta $01
+    lda n
+    sta $02
+    lda n + 1
+    sta $03
+    jsr mul16
+    lda $10
+    sta $00
+    lda $11
+    sta $01
+    lda #3
+    sta $02
+    lda #0
+    sta $03
+    jsr div16
+    lda $00
+    sta len
+    sta len_bytes
+    lda $01
+    sta len + 1
+    sta len_bytes + 1
+    asl len_bytes
+    rol len_bytes + 1
+
+    ; Initialize the digit and render pointers
+    lda #.LOBYTE(digits)
+    sta digitPtr
+    sta renderPtr
+    lda #.HIBYTE(digits)
+    sta digitPtr + 1
+    sta renderPtr + 1
+
+    ; for (let x = len; x > 0; x--) A[i] = 2;
+    .scope
+      lda #.LOBYTE(array)
+      sta $00
+      lda #.HIBYTE(array)
+      sta $01
+      lda #.LOBYTE(LEN + 2)
+      sta $02
+      lda #.HIBYTE(LEN + 2)
+      sta $03
+    loop:
+      lda #2
+      ldy #0
+      sta ($00), y
+      lda #0
+      ldy #1
+      sta ($00), y
+      lda $00
+      clc
+      adc #2
+      sta $00
+      lda $01
+      adc #0
+      sta $01
+      dec $02
+      lda #$FF
+      cmp $02
+      bne :+
+      dec $03
+    : lda $02
+      bne loop
+      lda $03
+      bne loop
+    .endscope
+
+    ; Enable caclulation
     lda #1
     sta calcOn
     rts
@@ -157,89 +230,6 @@
   .endproc
 
   .proc calculate
-    ; Calculate length and length in bytes for the table
-    lda #10
-    sta $00
-    lda #0
-    sta $01
-    lda n
-    sta $02
-    lda n + 1
-    sta $03
-    jsr mul16
-    lda $10
-    sta $00
-    lda $11
-    sta $01
-    lda #3
-    sta $02
-    lda #0
-    sta $03
-    jsr div16
-    lda $00
-    sta len
-    sta len_bytes
-    lda $01
-    sta len + 1
-    sta len_bytes + 1
-    asl len_bytes
-    rol len_bytes + 1
-
-    ; Initialize the digit and render pointers
-    lda #.LOBYTE(digits)
-    sta digitPtr
-    sta renderPtr
-    lda #.HIBYTE(digits)
-    sta digitPtr + 1
-    sta renderPtr + 1
-
-    ; for (let x = len; x > 0; x--) A[i] = 2;
-    .scope
-      lda #.LOBYTE(array)
-      sta $00
-      lda #.HIBYTE(array)
-      sta $01
-      lda #.LOBYTE(LEN + 2)
-      sta $02
-      lda #.HIBYTE(LEN + 2)
-      sta $03
-    loop:
-      lda #2
-      ldy #0
-      sta ($00), y
-      lda #0
-      ldy #1
-      sta ($00), y
-      lda $00
-      clc
-      adc #2
-      sta $00
-      lda $01
-      adc #0
-      sta $01
-      dec $02
-      lda #$FF
-      cmp $02
-      bne :+
-      dec $03
-    : lda $02
-      bne loop
-      lda $03
-      bne loop
-    .endscope
-
-    ; let nines = 0, predigit = 0, i = j = 0;
-    lda #0
-    sta nines
-    sta predigit
-    sta i
-    sta i+1
-    sta j
-    sta j+1
-
-    lda #1
-    sta drawEnabled
-
     ; for (let j = n; j >= 1; j--) {
     .scope
       ; let j = n
@@ -479,7 +469,7 @@
       .endscope
 
       lda calcOn
-      beq return
+      beq break
 
       ; j--
       lda j
@@ -502,7 +492,6 @@
     .endscope
     ; }
 
-  return:
     lda #0
     sta calcOn
     rts
