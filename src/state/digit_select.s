@@ -34,7 +34,7 @@
 
     DrawText 1, 25, str_time_cost_note
 
-    lda #MIN_N
+    lda #30
     sta digits
     lda #0
     sta digits + 1
@@ -143,7 +143,22 @@
     rts
   .endproc
 
+  .proc transition
+    lda digits
+    sta pi_spigot::n
+    lda digits + 1
+    sta pi_spigot::n + 1
+    jsr pi_spigot::init
+    rts
+  .endproc
+
   .proc game_loop
+    lda JOYPAD1_BITMASK
+    and #BUTTON_START
+    beq @dpad
+    jsr transition
+    rts
+  @dpad:
     lda #BUTTON_UP
     sta handle_button::button
     lda #1
@@ -188,7 +203,8 @@
 
   str_select_digits:
     .byte "SELECT NUMBER OF ", $0F, " DIGITS", $0A
-    .byte "TO CALCULATE", $0E
+    .byte "TO CALCULATE", $0E, " THEN PRESS", $0A
+    .byte "THE START BUTTON."
     .byte 0
 
   str_time_cost_note:
@@ -200,6 +216,7 @@
 
   top_menu:
     .byte 1, $04, 26, $08,  1, $05, 2, $00
+    .byte 2, $00,  1, $0A, 26, $01, 1, $0B, 2, $00
     .byte 2, $00,  1, $0A, 26, $01, 1, $0B, 2, $00
     .byte 2, $00,  1, $0A, 26, $01, 1, $0B, 2, $00
     .byte 2, $00,  1, $06, 26, $09,  1, $07

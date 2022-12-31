@@ -87,19 +87,17 @@
 .endscope
 .endmacro
 
-digitPtr    = $A2   ; 16-bit
-renderPtr   = $A4   ; 16-bit
-
 .include "bcd.s"
 .include "ppu.s"
 .include "draw.s"
 .include "joypad.s"
-
+.include "math.s"
 .include "pi_spigot.s"
 
 .include "state/pretitle.s"
 .include "state/title.s"
 .include "state/digit_select.s"
+
 
 .segment "HEADER"
   .byte $4E, $45, $53, $1A  ; iNES header identifier
@@ -166,11 +164,19 @@ renderPtr   = $A4   ; 16-bit
   SetGameState #GameState::digit_select
   EnableNMI
 @loop:
+  lda Game::state
+  cmp #GameState::calculate
+  beq @calculate
   bit Game::flags
   bpl @loop
   ClearGameFlag Game::FRAME_FLAG
   ReadJoypad1
   jsr executeGameLoopHandler
+  jmp @loop
+@calculate:
+  lda pi_spigot::calcOn
+  beq @loop
+  jsr pi_spigot::calculate
   jmp @loop
 .endproc
 
@@ -194,12 +200,22 @@ renderPtr   = $A4   ; 16-bit
 
 .proc nmi
   PushState
-  bit Game::state
+  lda Game::state
+  cmp #GameState::calculate
+  bne @not_calculate
+  ; jsr calculate::update
+  ; jsr calculate::draw
+
+  jsr pi_spigot::draw
+
+  jmp @return
+@not_calculate:
+  bit Game::flags
   bmi @return
   jsr executeDrawHandler
-  VramReset
   SetGameFlag Game::FRAME_FLAG
 @return:
+  VramReset
   PullState
   rti
 .endproc
@@ -215,23 +231,28 @@ renderPtr   = $A4   ; 16-bit
 .endscope
 .endmacro
 
+.proc no_op_handler
+  nop
+  rts
+.endproc
+
 .proc executeInitHandler
   JumpTable Game::state, low, high
-.define InitHandlers pretitle::init, title::init, digit_select::init
+.define InitHandlers pretitle::init, title::init, digit_select::init, no_op_handler
 low: .lobytes InitHandlers
 high: .hibytes InitHandlers
 .endproc
 
 .proc executeDrawHandler
   JumpTable Game::state, low, high
-.define DrawHandlers pretitle::draw, title::draw, digit_select::draw
+.define DrawHandlers pretitle::draw, title::draw, digit_select::draw, no_op_handler
 low: .lobytes DrawHandlers
 high: .hibytes DrawHandlers
 .endproc
 
 .proc executeGameLoopHandler
   JumpTable Game::state, low, high
-.define GameLoopHandlers pretitle::game_loop, title::game_loop, digit_select::game_loop
+.define GameLoopHandlers pretitle::game_loop, title::game_loop, digit_select::game_loop, no_op_handler
 low:  .lobytes GameLoopHandlers
 high: .hibytes GameLoopHandlers
 .endproc
