@@ -87,11 +87,12 @@
 .endscope
 .endmacro
 
-.include "bcd.s"
-.include "ppu.s"
-.include "draw.s"
-.include "joypad.s"
-.include "math.s"
+.include "lib/bcd.s"
+.include "lib/ppu.s"
+.include "lib/draw.s"
+.include "lib/joypad.s"
+.include "lib/math.s"
+
 .include "pi_spigot.s"
 
 .include "state/pretitle.s"

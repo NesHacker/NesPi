@@ -36,11 +36,7 @@
     sta Game::state
 
     jsr clear_data
-
-    lda #1
-    sta calcOn
-    lda #1
-    sta drawEnabled
+    jsr init_data
 
     jsr load_palettes
 
@@ -87,14 +83,12 @@
   .endproc
 
   .proc init_data
+    lda #1
+    sta calcOn
     rts
   .endproc
 
   .proc draw
-    lda drawEnabled
-    bne @render
-    rts
-  @render:
     lda hasRendered
     bne renderNextDigit
     bit PPU_STATUS
