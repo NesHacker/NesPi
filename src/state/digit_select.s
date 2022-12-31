@@ -26,14 +26,14 @@
 
     DrawText 3, 3, str_select_digits
 
-    VramColRow 12, 14, $2000
+    VramColRow 12, 12, $2000
     lda #.LOBYTE(digit_menu)
     sta vram_rle_fill::pointer
     lda #.HIBYTE(digit_menu)
     sta vram_rle_fill::pointer + 1
     jsr vram_rle_fill
 
-    DrawText 1, 25, str_time_cost_note
+    DrawText 1, 20, str_time_cost_note
 
     lda #.LOBYTE(DEFAULT_N)
     sta digits
@@ -46,7 +46,7 @@
   .endproc
 
   .proc draw
-    VramColRow 15, 15, $2000
+    VramColRow 15, 13, $2000
     PrintBcd $0011, #2, #$10, #$01
     rts
   .endproc
@@ -223,7 +223,11 @@
     .byte "NOTE: ", $0F, "-SPIGOT IS A QUADRATIC", $0A
     .byte "ALGORITHM. IT WILL SLOW DOWN", $0A
     .byte "SIGNIFICANTLY FOR VERY LARGE", $0A
-    .byte "NUMBERS", $0E
+    .byte "NUMBERS", $0E, $0A, $0A
+    .byte "CERTAIN DIGIT COUNTS (E.G. 5)", $0A
+    .byte "WILL NOT PRODUCE ALL DIGITS ", $0A
+    .byte "DUE TO AN OPTIMIZATION THAT", $0A
+    .byte "HANDLES PREDIGIT CORRECTION.", $0A
     .byte 0
 
   top_menu:
@@ -241,5 +245,5 @@
     .byte 0
 
   screen_attr:
-    .byt 48, %11111111, 16, %00000000, 0
+    .byt 32, %11111111, 32, %00000000, 0
 .endscope

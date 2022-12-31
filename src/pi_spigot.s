@@ -1,6 +1,8 @@
 .segment "CODE"
 
 .scope pi_spigot
+  MAX_DIGITS = 960
+
   vramAddr    = $60   ; 16-bit
   hasRendered = $62   ; 8-bit
   drawEnabled = $63   ; 8-bit
@@ -16,6 +18,7 @@
   n           = $94   ; 16-bit
   len         = $96   ; 16-bit
   len_bytes   = $98   ; 16-bit
+  digitsFound = $9A   ; 16-bit
 
   arrayPtr    = $A0   ; 16-bit
   digitPtr    = $A2   ; 16-bit
@@ -221,7 +224,20 @@
   .endproc
 
   .proc write_digit
-    tay
+    inc digitsFound
+    bne :+
+    inc digitsFound + 1
+  : tay
+    lda #.LOBYTE(MAX_DIGITS)
+    sec
+    sbc digitsFound
+    lda #.HIBYTE(MAX_DIGITS)
+    sbc digitsFound + 1
+    bcs @perform_write
+    dec digitsFound
+    rts
+  @perform_write:
+    tya
     clc
     adc checksum
     sta checksum
