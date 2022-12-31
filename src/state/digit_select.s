@@ -3,6 +3,7 @@
 .scope digit_select
   MIN_N         = 1
   MAX_N         = 960
+  DEFAULT_N     = 31
   REPEAT_DELAY  = 20
   REPEAT_FRAMES = 2
 
@@ -34,9 +35,9 @@
 
     DrawText 1, 25, str_time_cost_note
 
-    lda #30
+    lda #.LOBYTE(DEFAULT_N)
     sta digits
-    lda #0
+    lda #.HIBYTE(DEFAULT_N)
     sta digits + 1
 
     BinaryToBcd16 digits

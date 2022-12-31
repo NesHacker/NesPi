@@ -1,10 +1,6 @@
 .segment "CODE"
 
 .scope pi_spigot
-  N = 120
-  LEN = 10 * N / 3
-  LEN_BYTES = 2 * LEN
-
   vramAddr    = $60   ; 16-bit
   hasRendered = $62   ; 8-bit
   drawEnabled = $63   ; 8-bit
@@ -84,6 +80,12 @@
   .endproc
 
   .proc init_data
+    ; Increment n by one to account for the "tens place" digit
+    inc n
+    bne :+
+    inc n+1
+  :
+
     ; Calculate length and length in bytes for the table
     lda #10
     sta $00
@@ -126,10 +128,15 @@
       sta $00
       lda #.HIBYTE(array)
       sta $01
-      lda #.LOBYTE(LEN + 2)
+
+      lda len
+      clc
+      adc #2
       sta $02
-      lda #.HIBYTE(LEN + 2)
+      lda len+1
+      adc #0
       sta $03
+
     loop:
       lda #2
       ldy #0
@@ -232,11 +239,10 @@
   .proc calculate
     ; for (let j = n; j >= 1; j--) {
     .scope
-      ; let j = n
-      lda #.LOBYTE(N)
+      lda n
       sta j
-      lda #.HIBYTE(N)
-      sta j+1
+      lda n + 1
+      sta j + 1
 
     loop:
       ; let q = 0
@@ -246,18 +252,25 @@
       ; for (let i = len; i >= 1; i--) {
       .scope
         ; Save a pointer to the current array position
+        lda len_bytes
+        sec
+        sbc #2
+        sta $00
+        lda len_bytes + 1
+        sbc #0
+        sta $01
         lda #.LOBYTE(array)
         clc
-        adc #.LOBYTE(LEN_BYTES - 2)
+        adc $00
         sta arrayPtr
         lda #.HIBYTE(array)
-        adc #.HIBYTE(LEN_BYTES - 2)
+        adc $01
         sta arrayPtr + 1
 
         ; i = len
-        lda #.LOBYTE(LEN)
+        lda len
         sta i
-        lda #.HIBYTE(LEN)
+        lda len + 1
         sta i + 1
 
       loop:
