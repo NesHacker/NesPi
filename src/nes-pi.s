@@ -164,9 +164,10 @@
 .endproc
 
 .proc main
-  ; SetGameState #GameState::pretitle
-  SetGameState #GameState::digit_select
-  EnableNMI
+  SetGameState #GameState::pretitle
+  ; SetGameState #GameState::title
+  ; SetGameState #GameState::digit_select
+  ; EnableNMI
 @loop:
   lda Game::state
   cmp #GameState::calculate
@@ -201,7 +202,6 @@
   bmi @return
   jsr executeDrawHandler
   SetGameFlag Game::FRAME_FLAG
-  VramReset
 @return:
   pla
   tay

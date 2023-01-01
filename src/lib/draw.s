@@ -143,41 +143,22 @@
   jsr vram_rle_fill
 .endmacro
 
-.proc load_palettes
-  bit PPU_STATUS
-  lda #$3f
-  sta PPU_ADDR
-  lda #$00
-  sta PPU_ADDR
-  ldx #0
-: lda @palettes, x
-  sta PPU_DATA
+.proc clear_nametable_and_attr
+  ldy #4
+  lda #0
+: ldx #0
+: sta PPU_DATA
   inx
-  cpx #$20
   bne :-
+  dey
+  bne :--
   rts
-@palettes:
-  .byte $0F, $0F, $03, $32
-  .byte $0F, $16, $06, $05
-  .byte $0F, $10, $2D, $00
-  .byte $0F, $11, $03, $20
-  .byte $0F, $03, $15, $32
-  .byte $0F, $03, $15, $32
-  .byte $0F, $03, $15, $32
-  .byte $0F, $03, $15, $32
 .endproc
 
 .proc clear_screen
-  Vram $2000
-  lda #0
-  ldy #30
-@loop:
-  ldx #32
-@inner:
-  sta PPU_DATA
-  dex
-  bne @inner
-  dey
-  bne @loop
+  Vram NAMETABLE_A
+  jsr clear_nametable_and_attr
+  Vram NAMETABLE_C
+  jsr clear_nametable_and_attr
   rts
 .endproc

@@ -111,7 +111,7 @@
     .endproc
 
   state_timers:
-    .byte 4, 120, 4, 22
+    .byte 4, 70, 4, 22
   nes_palettes:
     .byte $0F, $0F, $0F, $0F
     .byte $0F, $06, $0F, $0F
@@ -130,13 +130,15 @@
   .endscope
 
   .proc drawNesHackerLogo
-    DrawImage image_neshacker, 4, 12, $B0
+    DrawImage image_neshacker, 4, 12, $10
     DrawText 12, 16, str_presents, NAMETABLE_A
     FillAttributes attr_neshacker
     rts
   .endproc
 
   .proc init
+    lda #%10010000
+    sta PPU_CTRL
     jsr clear_screen
     jsr PaletteFade::init
     jsr drawNesHackerLogo
@@ -145,6 +147,7 @@
 
   .proc draw
     jsr PaletteFade::update_palettes
+    VramReset
     rts
   .endproc
 
@@ -155,5 +158,5 @@
 
   image_neshacker:  .incbin "./src/bin/neshacker.bin"
   attr_neshacker:   .byte 24, 0, 3, %01010101, 5, %10101010, 8, %00000000, 0
-  str_presents:     .byte "PRESENTS", 0
+  str_presents:     .byte $58, $59, $5A, $5B, $5C, $5D, $5E, $5F, 0
 .endscope

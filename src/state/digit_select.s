@@ -3,7 +3,7 @@
 .scope digit_select
   MIN_N         = 1
   MAX_N         = 960
-  DEFAULT_N     = 31
+  DEFAULT_N     = 256
   REPEAT_DELAY  = 20
   REPEAT_FRAMES = 2
 
@@ -12,7 +12,24 @@
   repeat_timer  = $62 ; 8-bit
   last_n        = $64 ; 16-bit
 
+  .proc load_palettes
+    Vram PALETTE
+  : lda @palettes, x
+    sta PPU_DATA
+    inx
+    cpx #$10
+    bne :-
+    rts
+  @palettes:
+    .byte $0F, $0F, $03, $32
+    .byte $0F, $16, $06, $05
+    .byte $0F, $10, $2D, $00
+    .byte $0F, $11, $03, $20
+  .endproc
+
   .proc init
+    DisableNMI
+
     jsr clear_screen
     jsr load_palettes
 
@@ -52,6 +69,7 @@
     sta digits + 1
   @return:
     BinaryToBcd digits
+    EnableNMI
     rts
   .endproc
 
@@ -59,6 +77,14 @@
     BinaryToBcd digits
     VramColRow 15, 13, $2000
     PrintBcd bcd+1, #2, #$10, #$01
+
+    lda #0
+    sta PPU_SCROLL
+    lda #0
+    sta PPU_SCROLL
+    lda #%10000000
+    sta PPU_CTRL
+
     rts
   .endproc
 

@@ -126,7 +126,7 @@
       DrawText 4, 27, str_reset, NAMETABLE_C
 
       DrawText 14, 25, str_digits, NAMETABLE_C
-      DrawText 14, 27, str_checksum, NAMETABLE_C
+      DrawText 14, 26, str_checksum, NAMETABLE_C
 
       rts
 
@@ -186,7 +186,7 @@
       BinaryToBcd digitsFound
       VramColRow 25, 25, NAMETABLE_C
       PrintBcd binary_to_bcd::output+1, #2, #$10, #$01
-      VramColRow 26, 27, NAMETABLE_C
+      VramColRow 26, 26, NAMETABLE_C
       lda #$24
       sta PPU_DATA
       lda checksum
@@ -308,15 +308,7 @@
   .endproc
 
   .proc init_vram
-    Vram $2000
-    ldy #4
-    lda #0
-  : ldx #0
-  : sta PPU_DATA
-    inx
-    bne :-
-    dey
-    bne :--
+    jsr clear_screen
     Vram ATTR_C
     ldx #64
     lda #%01010101

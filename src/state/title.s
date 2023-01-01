@@ -1,22 +1,38 @@
 .segment "CODE"
 
 .scope title
+  lightnessIndex  = $60
+  timer           = $61
+  hue             = $62
+  textIndex       = $63
+  textTimer       = $64
+  enabled         = $65
+  flag            = $66
+  transitionTimer = $67
+  colorIndex      = $68
+
   .scope Transition
     FRAME_DURATION = 4
 
-    flag = $65
-    timer = $66
-    colorIndex = $67
-
     .proc init
       lda #FRAME_DURATION
-      sta timer
+      sta transitionTimer
       lda #0
       sta colorIndex
       rts
     .endproc
 
     .proc transition_game_state
+      lda #0
+      sta lightnessIndex
+      sta timer
+      sta hue
+      sta textIndex
+      sta textTimer
+      sta enabled
+      sta flag
+      sta transitionTimer
+      sta colorIndex
       SetGameState #GameState::digit_select
       rts
     .endproc
@@ -26,6 +42,12 @@
       bne @animate
       rts
     @animate:
+      dec transitionTimer
+      beq @next
+      rts
+    @next:
+      lda #FRAME_DURATION
+      sta transitionTimer
       Vram PALETTE + 2
       lda #$0F
       sta PPU_DATA
@@ -51,19 +73,18 @@
   .scope PiColor
     DURATION = 6
 
-    colorIndex = $60
-    timer = $61
-
     .proc init
       lda #0
-      sta colorIndex
+      sta lightnessIndex
       lda #DURATION
       sta timer
+      lda #1
+      sta hue
       rts
     .endproc
 
     .proc update
-      lda Transition::flag
+      lda flag
       bne @skip
       jsr cycle_color
     @skip:
@@ -71,48 +92,87 @@
     .endproc
 
     .proc cycle_color
-      sequenceLength = 12 * 12
       dec timer
       beq :+
       rts
     : lda #DURATION
       sta timer
-      Vram (PALETTE + 12 + 3)
-      ldx colorIndex
-      lda color_table, x
+      Vram (PALETTE + 12)
+
+      ldx lightnessIndex
+      ldy hue
+
+      lda lightness_cycle, x
+      beq @black
+      cmp #3
+      beq @bright
+      cmp #2
+      beq @medium
+    @dark:
+      lda #$0F
       sta PPU_DATA
+      lda hue
+      sta PPU_DATA
+      lda #$0F
+      sta PPU_DATA
+      sta PPU_DATA
+      jmp @next
+    @medium:
+      lda #$0F
+      sta PPU_DATA
+      lda hue
+      clc
+      adc #$10
+      sta PPU_DATA
+      lda hue
+      sta PPU_DATA
+      lda #$0F
+      sta PPU_DATA
+      jmp @next
+    @bright:
+      lda #$0F
+      sta PPU_DATA
+      lda hue
+      clc
+      adc #$20
+      sta PPU_DATA
+      lda hue
+      clc
+      adc #$10
+      sta PPU_DATA
+      lda hue
+      sta PPU_DATA
+      jmp @next
+    @black:
+      lda #$0F
+      sta PPU_DATA
+      sta PPU_DATA
+      sta PPU_DATA
+      sta PPU_DATA
+    @next:
       inx
-      cpx #sequenceLength
-      bne :+
+      cpx #12
+      bne @done
       ldx #0
-    : stx colorIndex
+      iny
+      cpy #$0D
+      bne @done
+      ldy #1
+    @done:
+      stx lightnessIndex
+      sty hue
       rts
-    color_table:
-      .byte $01, $11, $21, $21, $21, $21, $21, $21, $11, $01, $0F, $0F
-      .byte $02, $12, $22, $22, $22, $22, $22, $22, $12, $02, $0F, $0F
-      .byte $03, $13, $23, $23, $23, $23, $23, $23, $13, $03, $0F, $0F
-      .byte $04, $14, $24, $24, $24, $24, $24, $24, $14, $04, $0F, $0F
-      .byte $05, $15, $25, $25, $25, $25, $25, $25, $15, $05, $0F, $0F
-      .byte $06, $16, $26, $26, $26, $26, $26, $26, $16, $06, $0F, $0F
-      .byte $07, $17, $27, $27, $27, $27, $27, $27, $17, $07, $0F, $0F
-      .byte $08, $18, $28, $28, $28, $28, $28, $28, $18, $08, $0F, $0F
-      .byte $09, $19, $29, $29, $29, $29, $29, $29, $19, $09, $0F, $0F
-      .byte $0A, $1A, $2A, $2A, $2A, $2A, $2A, $2A, $1A, $0A, $0F, $0F
-      .byte $0B, $1B, $2B, $2B, $2B, $2B, $2B, $2B, $1B, $0B, $0F, $0F
-      .byte $0C, $1C, $2C, $2C, $2C, $2C, $2C, $2C, $1C, $0C, $0F, $0F
+    lightness_cycle:
+      .byte 0, 1, 2, 3, 3, 3, 3, 3, 3, 2, 1, 0
     .endproc
   .endscope
 
   .scope PressStart
     INITAL_DURATION = 80
     TYPE_DURATION = 6
-    TEXT_ROW = 24
+    TEXT_ROW = 25
     TEXT_COL = 10
     TEXT_VRAM_START = $2000 + ($20 * TEXT_ROW) + TEXT_COL
-
-    textIndex = $62
-    timer = $63
-    enabled = $64
 
     .proc init
       lda #0
@@ -120,19 +180,12 @@
       lda #1
       sta enabled
       lda #INITAL_DURATION
-      sta timer
-      Vram PALETTE
-      ldx #0
-    : lda text_palette, x
-      sta PPU_DATA
-      inx
-      cpx #4
-      bne :-
+      sta textTimer
       rts
     .endproc
 
     .proc update
-      lda Transition::flag
+      lda flag
       bne @skip
       jsr update_text
     @skip:
@@ -144,12 +197,12 @@
       bne @animate
       rts
     @animate:
-      dec timer
+      dec textTimer
       beq @next
       rts
     @next:
       lda #TYPE_DURATION
-      sta timer
+      sta textTimer
       bit PPU_STATUS
       lda #.LOBYTE(TEXT_VRAM_START)
       clc
@@ -171,23 +224,48 @@
       rts
     .endproc
 
-    str_press_start: .byte "PRESS START!", 0
+    str_press_start:
+      .byte $60, $61, $62, $63, $64, $65, $66, $67, $68, $69, $6A, $6B, 0
     text_palette: .byte $0F, $0F, $03, $32
   .endscope
 
-  .proc draw_pi
-    DrawImage image_pi, 8, 6, $60
-    FillAttributes attr_pi
-    rts
-  .endproc
-
   .proc init
+    lda #%10010000
+    sta PPU_CTRL
+
     jsr clear_screen
-    jsr draw_pi
+
+    ldx #0
+    Vram PALETTE
+  : lda title_palette, x
+    sta PPU_DATA
+    inx
+    cpx #$10
+    bne :-
+
+    DrawImage image_logo, 0, 0, $80
+    FillAttributes attr_logo
+
     jsr PiColor::init
     jsr PressStart::init
     jsr Transition::init
-    VramReset
+    jsr set_scroll
+
+    rts
+  title_palette:
+    .byte $0F, $0F, $11, $20
+    .byte $0F, $16, $05, $06
+    .byte $0F, $0F, $0F, $0F
+    .byte $0F, $0F, $0F, $0F
+  .endproc
+
+  .proc set_scroll
+    lda #0
+    sta PPU_SCROLL
+    lda #5
+    sta PPU_SCROLL
+    lda #%10010001
+    sta PPU_CTRL
     rts
   .endproc
 
@@ -195,11 +273,12 @@
     jsr PiColor::update
     jsr PressStart::update
     jsr Transition::update
+    jsr set_scroll
     rts
   .endproc
 
   .proc game_loop
-    lda Transition::flag
+    lda flag
     beq @check_controller
     rts
   @check_controller:
@@ -207,11 +286,11 @@
     and #BUTTON_START
     beq @skip
     lda #1
-    sta Transition::flag
+    sta flag
   @skip:
     rts
   .endproc
 
-  image_pi:     .incbin "./src/bin/pi.bin"
-  attr_pi:      .byte 48, %11111111, 16, %00000000, 0
+  image_logo:     .incbin "./src/bin/logo.bin"
+  attr_logo:      .byte 16, %01010101, 32, %11111111, 16, %00000000, 0
 .endscope
