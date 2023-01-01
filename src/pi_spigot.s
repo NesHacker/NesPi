@@ -6,6 +6,7 @@
   vramAddr    = $60   ; 16-bit
   hasRendered = $62   ; 8-bit
   drawEnabled = $63   ; 8-bit
+  last_n        = $64 ; 16-bit
 
   checksum    = $80   ; 8-bit
   nines       = $81   ; 8-bit
@@ -84,7 +85,8 @@
   .endscope
 
   .scope StartMenu
-    OPEN_Y = 175
+    ; OPEN_Y = 175
+    OPEN_Y = 191
     CLOSED_Y = 239
 
     .enum State
@@ -94,42 +96,152 @@
       closing = 3
     .endenum
 
+    .enum Cursor
+      continue = 0
+      reset = 1
+    .endenum
+
     state = $6C
     scrollY = $6D
     timer = $6E
+    cursor = $6F
 
     .proc init
       lda #State::closed
       sta state
       lda #CLOSED_Y
       sta scrollY
+
+      lda #Cursor::continue
+      sta cursor
+
       Vram NAMETABLE_C + 32 * 15
       lda #.LOBYTE(menu_border)
       sta vram_rle_fill::pointer
       lda #.HIBYTE(menu_border)
       sta vram_rle_fill::pointer + 1
       jsr vram_rle_fill
+
+      DrawText 4, 25, str_continue, NAMETABLE_C
+      DrawText 4, 27, str_reset, NAMETABLE_C
+
+      DrawText 14, 25, str_digits, NAMETABLE_C
+      DrawText 14, 27, str_checksum, NAMETABLE_C
+
+      rts
+
+      str_continue: .byte "CLOSE", 0
+      str_reset:    .byte "RESET", 0
+      str_digits:   .byte "  DIGITS:", 0
+      str_checksum: .byte "CHECKSUM:", 0
+    .endproc
+
+    .proc draw_cursor
+      continueVram = NAMETABLE_C + (25 * $20) + 2
+      resetVram = NAMETABLE_C + (27 * $20) + 2
+      Vram continueVram
+      lda #1
+      sta PPU_DATA
+      Vram resetVram
+      lda #1
+      sta PPU_DATA
+      lda cursor
+      asl
+      tax
+      bit PPU_STATUS
+      lda cursor_vram + 1, x
+      sta PPU_ADDR
+      lda cursor_vram, x
+      sta PPU_ADDR
+      lda #$0C
+      sta PPU_DATA
+      rts
+      cursor_vram:
+        .byte .LOBYTE(continueVram), .HIBYTE(continueVram)
+        .byte .LOBYTE(resetVram), .HIBYTE(resetVram)
+    .endproc
+
+    .proc transition_digit_select
+      DisableNMI
+      DisableRendering
+      lda #0
+      sta calcOn
+      lda n
+      sta last_n
+      lda n + 1
+      sta last_n + 1
+      dec last_n
+      lda #$FF
+      bne :+
+      dec last_n + 1
+    : lda #GameState::digit_select
+      sta Game::state
+      jsr executeInitHandler
+      EnableRendering
+      EnableNMI
+      rts
+    .endproc
+
+    .proc draw_stats
+      BinaryToBcd digitsFound
+      VramColRow 25, 25, NAMETABLE_C
+      PrintBcd binary_to_bcd::output+1, #2, #$10, #$01
+      VramColRow 26, 27, NAMETABLE_C
+      lda #$24
+      sta PPU_DATA
+      lda checksum
+      and #$F0
+      lsr
+      lsr
+      lsr
+      lsr
+      clc
+      adc #$10
+      sta PPU_DATA
+      lda checksum
+      and #$0F
+      clc
+      adc #$10
+      sta PPU_DATA
       rts
     .endproc
 
     .proc draw
+      jsr draw_cursor
+      jsr draw_stats
+      lda JOYPAD1_BITMASK_LAST
+      eor #$FF
+      and JOYPAD1_BITMASK
+      sta $20
       lda state
       cmp #State::opening
       beq @opening
       cmp #State::closing
       beq @closing
+      cmp #State::closed
+      beq @check_start_press
+    @check_up_down:
+      lda $20
+      and #(BUTTON_UP | BUTTON_DOWN)
+      beq @check_start_press
+      lda cursor
+      eor #1
+      sta cursor
+      rts
     @check_start_press:
-      lda JOYPAD1_BITMASK_LAST
-      and #BUTTON_START
-      bne @return
-      lda JOYPAD1_BITMASK
+      lda $20
       and #BUTTON_START
       beq @return
       lda state
       beq @closed
     @open:
+      lda cursor
+      bne @reset
       lda #State::closing
       sta state
+      rts
+    @reset:
+      jsr transition_digit_select
       rts
     @closed:
       lda #State::opening
@@ -163,21 +275,26 @@
     .endproc
 
     menu_border:
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $0A, 30, $01, 1, $0B
-      .byte 1, $06, 30, $09, 1, $07
+
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+      .byte 1, $0A, 10, $01, 1, $0B, 19, $01, 1, $0B
+
+      .byte 1, $06, 10, $09, 1, $07, 19, $09, 1, $07
       .byte 0
   .endscope
 

@@ -131,7 +131,7 @@
 
   .proc drawNesHackerLogo
     DrawImage image_neshacker, 4, 12, $B0
-    DrawText 12, 16, str_presents
+    DrawText 12, 16, str_presents, NAMETABLE_A
     FillAttributes attr_neshacker
     rts
   .endproc

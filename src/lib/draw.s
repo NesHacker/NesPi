@@ -98,17 +98,19 @@
   rts
 .endproc
 
-.macro DrawText col, row, textLabel
+.macro DrawText col, row, textLabel, nametable
 .scope
-  lda #.LOBYTE(textLabel)
-  sta draw_text::textPtr
-  lda #.HIBYTE(textLabel)
-  sta draw_text::textPtr + 1
-  vramStart = $2000 + (row * $20) + col
+  vramStart = nametable + (row * $20) + col
   lda #.LOBYTE(vramStart)
   sta draw_text::vramPtr
   lda #.HIBYTE(vramStart)
   sta draw_text::vramPtr + 1
+
+  lda #.LOBYTE(textLabel)
+  sta draw_text::textPtr
+  lda #.HIBYTE(textLabel)
+  sta draw_text::textPtr + 1
+
   jsr draw_text
 .endscope
 .endmacro

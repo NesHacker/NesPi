@@ -7,9 +7,10 @@
   REPEAT_DELAY  = 20
   REPEAT_FRAMES = 2
 
-  bcd           = $10 ; 16-bit
+  bcd           = binary_to_bcd::output
   digits        = $60 ; 16-bit
-  repeat_timer  = $62
+  repeat_timer  = $62 ; 8-bit
+  last_n        = $64 ; 16-bit
 
   .proc init
     jsr clear_screen
@@ -24,7 +25,7 @@
     sta vram_rle_fill::pointer + 1
     jsr vram_rle_fill
 
-    DrawText 3, 3, str_select_digits
+    DrawText 3, 3, str_select_digits, NAMETABLE_A
 
     VramColRow 12, 12, $2000
     lda #.LOBYTE(digit_menu)
@@ -33,21 +34,31 @@
     sta vram_rle_fill::pointer + 1
     jsr vram_rle_fill
 
-    DrawText 1, 20, str_time_cost_note
+    DrawText 1, 20, str_time_cost_note, NAMETABLE_A
 
+    lda last_n + 1
+    bne @load_last_n
+    lda last_n
+    bne @load_last_n
     lda #.LOBYTE(DEFAULT_N)
     sta digits
     lda #.HIBYTE(DEFAULT_N)
     sta digits + 1
-
-    BinaryToBcd16 digits
-
+    jmp @return
+  @load_last_n:
+    lda last_n
+    sta digits
+    lda last_n + 1
+    sta digits + 1
+  @return:
+    BinaryToBcd digits
     rts
   .endproc
 
   .proc draw
+    BinaryToBcd digits
     VramColRow 15, 13, $2000
-    PrintBcd $0011, #2, #$10, #$01
+    PrintBcd bcd+1, #2, #$10, #$01
     rts
   .endproc
 
@@ -107,7 +118,7 @@
     sta digits + 1
     jsr clamp_digits
   @done:
-    BinaryToBcd16 digits
+    BinaryToBcd digits
     lda #1
     sta made_change
     rts
