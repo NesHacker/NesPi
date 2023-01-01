@@ -165,9 +165,6 @@
 
 .proc main
   SetGameState #GameState::pretitle
-  ; SetGameState #GameState::title
-  ; SetGameState #GameState::digit_select
-  ; EnableNMI
 @loop:
   lda Game::state
   cmp #GameState::calculate

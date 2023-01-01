@@ -6,13 +6,15 @@
   vramAddr    = $60   ; 16-bit
   hasRendered = $62   ; 8-bit
   drawEnabled = $63   ; 8-bit
-  last_n        = $64 ; 16-bit
+  last_n      = $64   ; 16-bit
 
   checksum    = $80   ; 8-bit
   nines       = $81   ; 8-bit
   predigit    = $82   ; 8-bit
   q           = $83   ; 8-bit
   calcOn      = $84   ; 8-bit
+  fullBars    = $85   ; 8-bit
+  pips        = $86   ; 8-bit
 
   i           = $90   ; 16-bit
   j           = $92   ; 16-bit
@@ -124,15 +126,12 @@
 
       DrawText 4, 25, str_continue, NAMETABLE_C
       DrawText 4, 27, str_reset, NAMETABLE_C
-
-      DrawText 14, 25, str_digits, NAMETABLE_C
-      DrawText 14, 26, str_checksum, NAMETABLE_C
+      DrawText 13, 25, str_checksum, NAMETABLE_C
 
       rts
 
       str_continue: .byte "CLOSE", 0
       str_reset:    .byte "RESET", 0
-      str_digits:   .byte "  DIGITS:", 0
       str_checksum: .byte "CHECKSUM:", 0
     .endproc
 
@@ -183,10 +182,7 @@
     .endproc
 
     .proc draw_stats
-      BinaryToBcd digitsFound
-      VramColRow 25, 25, NAMETABLE_C
-      PrintBcd binary_to_bcd::output+1, #2, #$10, #$01
-      VramColRow 26, 26, NAMETABLE_C
+      VramColRow 26, 25, NAMETABLE_C
       lda #$24
       sta PPU_DATA
       lda checksum
@@ -206,9 +202,37 @@
       rts
     .endproc
 
+    .proc draw_progress_bar
+      VramColRow 13, 27, NAMETABLE_C
+      ldx fullBars
+      beq @pips
+      lda #$88
+    : sta PPU_DATA
+      dex
+      bne :-
+    @pips:
+      lda pips
+      adc #$80
+      sta PPU_DATA
+    @empty:
+      lda #15
+      sec
+      sbc fullBars
+      tax
+      beq @done
+      lda #$80
+    : sta PPU_DATA
+      dex
+      bne :-
+    @done:
+      rts
+    .endproc
+
     .proc draw
       jsr draw_cursor
       jsr draw_stats
+      jsr draw_progress_bar
+
       lda JOYPAD1_BITMASK_LAST
       eor #$FF
       and JOYPAD1_BITMASK
@@ -541,6 +565,52 @@
   : rts
   .endproc
 
+  .proc calc_progress
+    ; p' = (len - i) * 128
+    lda len
+    sec
+    sbc i
+    sta $00
+    lda len + 1
+    sbc i + 1
+    sta $01
+    lda #128
+    sta $02
+    lda #0
+    sta $03
+    jsr mul16
+
+    ; p = p' / len
+    lda $10
+    sta $00
+    lda $11
+    sta $01
+    lda $12
+    sta $02
+    lda len
+    sta $03
+    lda len + 1
+    sta $04
+    lda #0
+    sta $05
+    jsr div24
+
+    ; b = p / 8    ($00)
+    ; pips = p % 8 ($06)
+    lda #8
+    sta $02
+    lda #0
+    sta $03
+    jsr div16
+
+    lda $00
+    sta fullBars
+    lda $06
+    sta pips
+
+    rts
+  .endproc
+
   .proc calculate
     ; for (let j = n; j >= 1; j--) {
     .scope
@@ -579,6 +649,8 @@
         sta i + 1
 
       loop:
+        jsr calc_progress
+
         ; z = 10 * A[i] + q * i
 
         ; 10 * A[i] -> $14
@@ -815,4 +887,3 @@
     rts
   .endproc
 .endscope
-
