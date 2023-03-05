@@ -145,9 +145,21 @@
   sta $0700, x
   inx
   bne :-
+  lda #$EF
+  ldy #0
+: sta $0200, y
+  iny
+  iny
+  iny
+  iny
+  bne :-
 : bit PPU_STATUS
   bpl :-
   bit PPU_STATUS
+  lda #$00
+  sta $2003
+  lda #$02
+  sta $4014
   lda #$3F
   sta PPU_ADDR
   lda #$00
