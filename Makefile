@@ -2,11 +2,13 @@ BUILD = ./build
 SRC = ./src
 OBJECTS = nes-pi.o
 
-all: nes-pi.nes
+all: build-dir nes-pi.nes
 
-clean:
-	mkdir -p $(BUILD)
+clean: build-dir
 	rm -rf build/*.o nes-pi.nes
+
+build-dir:
+	mkdir -p $(BUILD)
 
 nes-pi.nes: $(OBJECTS)
 	cl65 -t nes -o nes-pi.nes $(BUILD)/*.o
