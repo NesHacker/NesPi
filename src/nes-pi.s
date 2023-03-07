@@ -143,23 +143,17 @@
   sta $0500, x
   sta $0600, x
   sta $0700, x
-  inx
-  bne :-
   lda #$EF
-  ldy #0
-: sta $0200, y
-  iny
-  iny
-  iny
-  iny
+  sta $0200, x
+  inx
   bne :-
 : bit PPU_STATUS
   bpl :-
   bit PPU_STATUS
   lda #$00
-  sta $2003
+  sta OAM_ADDR
   lda #$02
-  sta $4014
+  sta OAM_DMA
   lda #$3F
   sta PPU_ADDR
   lda #$00
@@ -201,6 +195,10 @@
   pha
   tya
   pha
+  lda #$00
+  sta OAM_ADDR
+  lda #$02
+  sta OAM_DMA
   lda Game::state
   cmp #GameState::calculate
   bne @not_calculating

@@ -116,7 +116,7 @@ ATTR_D      = $2fc0
 PALETTE     = $3f00
 
 .macro EnableRendering
-  lda #%00011110
+  lda #%00001110
   sta PPU_MASK
 .endmacro
 
