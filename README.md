@@ -8,5 +8,8 @@ Stanley Rabinowitz and Stan Wagon](https://www.maa.org/sites/default/files/pdf/p
 ## Building
 The project requires [`ca65`](https://cc65.github.io/) and [`make`](https://www.gnu.org/software/make/) and can be built by running `make` from the project root.
 
+### NTSC Note
+In order to fit 960 digits, the game uses nametable realestate that's usually clipped when running on an NTSC screen. This means if you run it on actual hardware or in some emulators, the digits on the top and bottom may be cut off.
+
 ## License
 MIT
